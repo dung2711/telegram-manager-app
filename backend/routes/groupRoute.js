@@ -8,9 +8,10 @@ import { getChats, getChatDetails, getChatMembers,
 const router = express.Router();
 
 /**
- * GET /api/groups
+ * GET /api/groups/:accountID
  * Get all chats with their details and members
  * 
+ * @param {string} accountID - Account ID
  * @query {number} [limit] - Maximum number of chats to retrieve (20, 50, 100, or 200)
  * @query {string} [chatList] - Type of chat list ("chatListMain" or "chatListArchive")
  * 
@@ -47,15 +48,16 @@ const router = express.Router();
  *   }
  * ]
  */
-router.get('/', async (req, res) => {
+router.get('/:accountID', async (req, res) => {
     try {
-        const result = await getChats();
+        const { accountID } = req.params;
+        const result = await getChats(accountID);
         if(result.success) {
             const chatDetails = await Promise.all(
                 result.data.chats.map(async (chatId) => {
                     try {
-                        const detail = await getChatDetails(chatId);
-                        const members = await getChatMembers(chatId);
+                        const detail = await getChatDetails(accountID, chatId);
+                        const members = await getChatMembers(accountID, chatId);
                         return {
                             chatId,
                             detail: detail.data,
@@ -76,9 +78,10 @@ router.get('/', async (req, res) => {
 });
 
 /**
- * GET /api/groups/:id
+ * GET /api/groups/:accountID/:id
  * Get details of a specific chat by ID
  * 
+ * @param {string} accountID - Account ID
  * @param {string|number} id - Chat ID
  * 
  * @returns {Object} Chat information object
@@ -110,11 +113,11 @@ router.get('/', async (req, res) => {
  *   }
  * }
  */
-router.get('/:id', async (req, res) => {
+router.get('/:accountID/:id', async (req, res) => {
     try {
-        const chatId = req.params.id;
-        const detail = await getChatDetails(chatId);
-        const members = await getChatMembers(chatId);
+        const { accountID, id: chatId } = req.params;
+        const detail = await getChatDetails(accountID, chatId);
+        const members = await getChatMembers(accountID, chatId);
         res.status(200).json({ detail, members });
     } catch (error) {
         res.status(500).json(error);
@@ -122,9 +125,10 @@ router.get('/:id', async (req, res) => {
 });
 
 /**
- * POST /api/groups
+ * POST /api/groups/:accountID
  * Create a new chat (basic group, supergroup, channel, or secret chat)
  * 
+ * @param {string} accountID - Account ID
  * @body {string} type - Type of chat to create: "basic_group", "super_group", or "secret_chat"
  * @body {string} title - Chat title (required for basic_group and super_group)
  * @body {number[]} userIds - Array of user IDs to add (required for basic_group and secret_chat)
@@ -178,19 +182,20 @@ router.get('/:id', async (req, res) => {
  *   "message": "Basic group 'My Group' created successfully"
  * }
  */
-router.post('/', async (req, res) => {
+router.post('/:accountID', async (req, res) => {
     try {
+        const { accountID } = req.params;
         const { type, title, userIds } = req.body;
         if (type === 'basic_group') {
-            const result = await createBasicGroupChat(title, userIds);
+            const result = await createBasicGroupChat(accountID, userIds, title);
             res.status(200).json(result);
         } else if (type === 'super_group') {
             const { isChannel, description, location } = req.body;
-            const result = await createNewSupergroupChat(title, isChannel, description, location);
+            const result = await createNewSupergroupChat(accountID, title, isChannel, description, location);
             res.status(200).json(result);
         } else if (type === 'secret_chat') {
             const id = parseInt(userIds[0], 10);
-            const result = await createNewSecretChat(id);
+            const result = await createNewSecretChat(accountID, id);
             res.status(200).json(result);
         } else {
             res.status(400).json({ success: false, error: 'Invalid chat type' });
@@ -201,9 +206,10 @@ router.post('/', async (req, res) => {
 });
 
 /**
- * POST /api/groups/:id/addMember
+ * POST /api/groups/:accountID/:id/addMember
  * Add a single member to a chat
  * 
+ * @param {string} accountID - Account ID
  * @param {string|number} id - Chat ID
  * @body {number} userId - User ID to add to the chat
  * @body {number} [forwardLimit] - Number of old messages to forward to the new member (0-300, default: 0)
@@ -225,11 +231,11 @@ router.post('/', async (req, res) => {
  *   "message": "User 987654321 added to chat 123456789 successfully"
  * }
  */
-router.post('/:id/addMember', async (req, res) => {
+router.post('/:accountID/:id/addMember', async (req, res) => {
     try {
-        const chatId = req.params.id;
+        const { accountID, id: chatId } = req.params;
         const { userId, forwardLimit } = req.body;
-        const result = await addMemberToGroup(chatId, userId, forwardLimit);
+        const result = await addMemberToGroup(accountID, chatId, userId, forwardLimit);
         res.status(200).json(result);
     } catch (error) {
         res.status(500).json(error);
@@ -237,9 +243,10 @@ router.post('/:id/addMember', async (req, res) => {
 });
 
 /**
- * POST /api/groups/:id/addMembers
+ * POST /api/groups/:accountID/:id/addMembers
  * Add multiple members to a supergroup (only works with supergroups)
  * 
+ * @param {string} accountID - Account ID
  * @param {string|number} id - Supergroup chat ID
  * @body {number[]} userIds - Array of user IDs to add to the supergroup
  * 
@@ -261,11 +268,11 @@ router.post('/:id/addMember', async (req, res) => {
  * 
  * @error Returns error if chat is not a supergroup
  */
-router.post('/:id/addMembers', async (req, res) => {
+router.post('/:accountID/:id/addMembers', async (req, res) => {
     try {
-        const chatId = req.params.id;
+        const { accountID, id: chatId } = req.params;
         const { userIds } = req.body;
-        const result = await addMembersToGroup(chatId, userIds);
+        const result = await addMembersToGroup(accountID, chatId, userIds);
         res.status(200).json(result);
     } catch (error) {
         res.status(500).json(error);
@@ -273,9 +280,10 @@ router.post('/:id/addMembers', async (req, res) => {
 });
 
 /**
- * PUT /api/groups/:id/removeMember
+ * PUT /api/groups/:accountID/:id/removeMember
  * Remove a member from a chat
  * 
+ * @param {string} accountID - Account ID
  * @param {string|number} id - Chat ID
  * @body {number} userId - User ID to remove from the chat
  * 
@@ -295,11 +303,11 @@ router.post('/:id/addMembers', async (req, res) => {
  *   "message": "User 987654321 removed from chat 123456789 successfully"
  * }
  */
-router.put('/:id/removeMember', async (req, res) => {
+router.put('/:accountID/:id/removeMember', async (req, res) => {
     try {
-        const chatId = req.params.id;
+        const { accountID, id: chatId } = req.params;
         const { userId } = req.body;
-        const result = await removeMemberFromGroup(chatId, userId);
+        const result = await removeMemberFromGroup(accountID, chatId, userId);
         res.status(200).json(result);
     } catch (error) {
         res.status(500).json(error);
@@ -307,9 +315,10 @@ router.put('/:id/removeMember', async (req, res) => {
 });
 
 /**
- * PUT /api/groups/:id/leave
+ * PUT /api/groups/:accountID/:id/leave
  * Leave a chat
  * 
+ * @param {string} accountID - Account ID
  * @param {string|number} id - Chat ID to leave
  * 
  * @returns {Object} Result object
@@ -325,10 +334,10 @@ router.put('/:id/removeMember', async (req, res) => {
  *   "message": "Left chat 123456789 successfully"
  * }
  */
-router.put('/:id/leave', async (req, res) => {
+router.put('/:accountID/:id/leave', async (req, res) => {
     try {
-        const chatId = req.params.id;
-        const result = await leaveChat(chatId);
+        const { accountID, id: chatId } = req.params;
+        const result = await leaveChat(accountID, chatId);
         res.status(200).json(result);
     } catch (error) {
         res.status(500).json(error);
@@ -336,9 +345,10 @@ router.put('/:id/leave', async (req, res) => {
 });
 
 /**
- * PUT /api/groups/:id/setTitle
+ * PUT /api/groups/:accountID/:id/setTitle
  * Update chat title (works for basic groups and supergroups)
  * 
+ * @param {string} accountID - Account ID
  * @param {string|number} id - Chat ID
  * @body {string} title - New title for the chat (required, non-empty)
  * 
@@ -358,11 +368,11 @@ router.put('/:id/leave', async (req, res) => {
  *   "message": "Chat title updated to 'New Group Name' successfully"
  * }
  */
-router.put('/:id/setTitle', async (req, res) => {
+router.put('/:accountID/:id/setTitle', async (req, res) => {
     try {
-        const chatId = req.params.id;
+        const { accountID, id: chatId } = req.params;
         const { title } = req.body;
-        const result = await setChatTitle(chatId, title);
+        const result = await setChatTitle(accountID, chatId, title);
         res.status(200).json(result);
     } catch (error) {
         res.status(500).json(error);
@@ -370,9 +380,10 @@ router.put('/:id/setTitle', async (req, res) => {
 });
 
 /**
- * PUT /api/groups/:id/setDescription
+ * PUT /api/groups/:accountID/:id/setDescription
  * Update chat description (works for supergroups and channels only)
  * 
+ * @param {string} accountID - Account ID
  * @param {string|number} id - Chat ID
  * @body {string} description - New description for the chat (can be empty)
  * 
@@ -394,11 +405,11 @@ router.put('/:id/setTitle', async (req, res) => {
  * 
  * @error Returns error if chat is not a supergroup or channel
  */
-router.put('/:id/setDescription', async (req, res) => {
+router.put('/:accountID/:id/setDescription', async (req, res) => {
     try {
-        const chatId = req.params.id;
+        const { accountID, id: chatId } = req.params;
         const { description } = req.body;
-        const result = await setChatDescription(chatId, description);
+        const result = await setChatDescription(accountID, chatId, description);
         res.status(200).json(result);
     } catch (error) {
         res.status(500).json(error);
@@ -406,9 +417,10 @@ router.put('/:id/setDescription', async (req, res) => {
 });
 
 /**
- * PUT /api/groups/:id/setPermissions
+ * PUT /api/groups/:accountID/:id/setPermissions
  * Update chat permissions for all members (works for supergroups only)
  * 
+ * @param {string} accountID - Account ID
  * @param {string|number} id - Chat ID
  * @body {Object} permissions - Permissions object with boolean flags:
  *   @body {boolean} [can_send_messages] - Can send text messages
@@ -451,11 +463,11 @@ router.put('/:id/setDescription', async (req, res) => {
  * - can_invite_users: false
  * - can_pin_messages: false
  */
-router.put('/:id/setPermissions', async (req, res) => {
+router.put('/:accountID/:id/setPermissions', async (req, res) => {
     try {
-        const chatId = req.params.id;
+        const { accountID, id: chatId } = req.params;
         const { permissions } = req.body;
-        const result = await setChatPermissions(chatId, permissions);
+        const result = await setChatPermissions(accountID, chatId, permissions);
         res.status(200).json(result);
     } catch (error) {
         res.status(500).json(error);
@@ -463,9 +475,10 @@ router.put('/:id/setPermissions', async (req, res) => {
 });
 
 /**
- * DELETE /api/groups/:id
+ * DELETE /api/groups/:accountID/:id
  * Delete a chat (removes chat from the chat list)
  * 
+ * @param {string} accountID - Account ID
  * @param {string|number} id - Chat ID to delete
  * 
  * @returns {Object} Result object
@@ -484,10 +497,10 @@ router.put('/:id/setPermissions', async (req, res) => {
  * @note This removes the chat from your chat list but doesn't delete the group itself.
  * To permanently delete a group you created, you need to be the owner and remove all members first.
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:accountID/:id', async (req, res) => {
     try {
-        const chatId = req.params.id;
-        const result = await deleteChat(chatId);
+        const { accountID, id: chatId } = req.params;
+        const result = await deleteChat(accountID, chatId);
         res.status(200).json(result);
     } catch (error) {
         res.status(500).json(error);

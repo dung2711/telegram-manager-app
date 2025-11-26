@@ -1,12 +1,13 @@
 import express from 'express';
-import { getContactsDetails, getUserById } from "../controllers/userController.js";
+import { getContactsDetails, getUserById, addContacts, removeContacts } from "../controllers/userController.js";
 
 const router = express.Router();
 
 /**
- * GET /api/users/contacts
+ * GET /api/users/:accountID/contacts
  * Get all contacts with detailed user information
  * 
+ * @param {string} accountID - Account ID
  * @returns {Object} Result object
  * @returns {boolean} success - Whether the request was successful
  * @returns {Object[]} data - Array of user objects with details:
@@ -43,9 +44,10 @@ const router = express.Router();
  *   "count": 1
  * }
  */
-router.get('/contacts', async (req, res) => {
+router.get('/:accountID/contacts', async (req, res) => {
     try {
-        const result = await getContactsDetails();
+        const { accountID } = req.params;
+        const result = await getContactsDetails(accountID);
         res.status(200).json(result);
     } catch (error) {
         res.status(500).json(error);
@@ -53,9 +55,10 @@ router.get('/contacts', async (req, res) => {
 });
 
 /**
- * GET /api/users/:id
+ * GET /api/users/:accountID/:id
  * Get detailed information about a specific user by their ID
  * 
+ * @param {string} accountID - Account ID
  * @param {number} id - User ID
  * 
  * @returns {Object} Result object
@@ -108,13 +111,64 @@ router.get('/contacts', async (req, res) => {
  *   }
  * }
  */
-router.get('/:id', async (req, res) => {
+router.get('/:accountID/:id', async (req, res) => {
     try {
+        const { accountID } = req.params;
         const userId = parseInt(req.params.id, 10);
-        const result = await getUserById(userId);
+        const result = await getUserById(accountID, userId);
         res.status(200).json(result);   
     } catch (error) {
         res.status(500).json(error);
+    }
+});
+
+router.post('/:accountID/add-contacts', async (req, res) => {
+    try {
+        const { accountID } = req.params;
+        const { contacts } = req.body;
+        if (!Array.isArray(contacts) || contacts.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'contacts must be a non-empty array'
+            });
+        }
+
+        const addedContacts = await addContacts(accountID, contacts);
+
+        res.status(200).json({
+            success: true,
+            data: addedContacts
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to add contacts'
+        });
+    }
+});
+
+router.delete('/:accountID/remove-contacts', async (req, res) => {
+    try {
+        const { accountID } = req.params;
+        const { userIds } = req.body;
+        if (!Array.isArray(userIds) || userIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'userIds must be a non-empty array'
+            });
+        }
+
+        const result = await removeContacts(accountID, userIds);
+
+        res.status(200).json({
+            success: true,
+            data: result
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to remove contacts'
+        });
     }
 });
 

@@ -1,13 +1,17 @@
-import client from "../config/tdlib.js";
+import { getClient } from '../services/tdClient.js';
 
 /**
  * Get chats with pagination and filtering options
+ * @param {string} accountID - Account ID
  * @param {number} limit - Maximum number of chats to retrieve (default: 100)
  * @param {string} chatList - Type of chat list ("chatListMain" or "chatListArchive")
  * @returns {Promise<Object>} List of chats
  */
-export const getChats = async (limit = 100, chatList = "chatListMain") => {
+export const getChats = async (accountID, limit = 100, chatList = "chatListMain") => {
     try {
+        const client = getClient(accountID);
+        if (!client) throw new Error('No active session found');
+        
         const validLimits = [20, 50, 100, 200];
         const safeLimit = validLimits.includes(limit) ? limit : 100;
 
@@ -35,11 +39,15 @@ export const getChats = async (limit = 100, chatList = "chatListMain") => {
 
 /**
  * Get detailed chat information including full info based on chat type
+ * @param {string} accountID - Account ID
  * @param {number} chatId - Chat ID
  * @returns {Promise<Object>} Chat details with full info
  */
-export const getChatDetails = async (chatId) => {
+export const getChatDetails = async (accountID, chatId) => {
     try {
+        const client = getClient(accountID);
+        if (!client) throw new Error('No active session found');
+        
         if (!chatId || (typeof chatId !== 'number' && typeof chatId !== 'string')) {
             throw new Error('Valid chat ID is required');
         }
@@ -97,12 +105,16 @@ export const getChatDetails = async (chatId) => {
 
 /**
  * Create a new basic group chat
+ * @param {string} accountID - Account ID
  * @param {number[]} userIds - Array of user IDs to add to the group
  * @param {string} title - Group title
  * @returns {Promise<Object>} Created chat info
  */
-export const createBasicGroupChat = async (userIds, title) => {
+export const createBasicGroupChat = async (accountID, userIds, title) => {
     try {
+        const client = getClient(accountID);
+        if (!client) throw new Error('No active session found');
+        
         if (!Array.isArray(userIds) || userIds.length === 0) {
             throw new Error('At least one user ID is required');
         }
@@ -135,11 +147,15 @@ export const createBasicGroupChat = async (userIds, title) => {
 
 /**
  * Create a new secret chat
+ * @param {string} accountID - Account ID
  * @param {number} userId - User ID to create secret chat with
  * @returns {Promise<Object>} Created secret chat info
  */
-export const createNewSecretChat = async (userId) => {
+export const createNewSecretChat = async (accountID, userId) => {
     try {
+        const client = getClient(accountID);
+        if (!client) throw new Error('No active session found');
+        
         if (!userId || typeof userId !== 'number') {
             throw new Error('Valid user ID is required');
         }
@@ -165,14 +181,18 @@ export const createNewSecretChat = async (userId) => {
 
 /**
  * Create a new supergroup or channel
+ * @param {string} accountID - Account ID
  * @param {string} title - Group/channel title
  * @param {boolean} isChannel - True for channel, false for supergroup
  * @param {string} description - Group/channel description
  * @param {string} location - Location (optional)
  * @returns {Promise<Object>} Created chat info
  */
-export const createNewSupergroupChat = async (title, isChannel = false, description = "", location = "") => {
+export const createNewSupergroupChat = async (accountID, title, isChannel = false, description = "", location = "") => {
     try {
+        const client = getClient(accountID);
+        if (!client) throw new Error('No active session found');
+        
         if (!title || typeof title !== 'string' || title.trim().length === 0) {
             throw new Error('Valid group/channel title is required');
         }
@@ -204,13 +224,17 @@ export const createNewSupergroupChat = async (title, isChannel = false, descript
 
 /**
  * Add a member to a group chat
+ * @param {string} accountID - Account ID
  * @param {number} chatId - Chat ID
  * @param {number} userId - User ID to add
  * @param {number} forwardLimit - Number of old messages to forward (0-300)
  * @returns {Promise<Object>} Result of add member operation
  */
-export const addMemberToGroup = async (chatId, userId, forwardLimit = 0) => {
+export const addMemberToGroup = async (accountID, chatId, userId, forwardLimit = 0) => {
     try {
+        const client = getClient(accountID);
+        if (!client) throw new Error('No active session found');
+        
         if (!chatId || (typeof chatId !== 'number' && typeof chatId !== 'string')) {
             throw new Error('Valid chat ID is required');
         }
@@ -243,12 +267,16 @@ export const addMemberToGroup = async (chatId, userId, forwardLimit = 0) => {
 
 /**
  * Add multiple members to a supergroup
+ * @param {string} accountID - Account ID
  * @param {number} chatId - Supergroup chat ID
  * @param {number[]} userIds - Array of user IDs to add
  * @returns {Promise<Object>} Result of add members operation
  */
-export const addMembersToGroup = async (chatId, userIds) => {
+export const addMembersToGroup = async (accountID, chatId, userIds) => {
     try {
+        const client = getClient(accountID);
+        if (!client) throw new Error('No active session found');
+        
         if (!chatId || (typeof chatId !== 'number' && typeof chatId !== 'string')) {
             throw new Error('Valid chat ID is required');
         }
@@ -257,7 +285,7 @@ export const addMembersToGroup = async (chatId, userIds) => {
         }
 
         // Get chat details to ensure it's a supergroup
-        const chatDetails = await getChatDetails(chatId);
+        const chatDetails = await getChatDetails(accountID, chatId);
         if (chatDetails.data.chatType !== 'chatTypeSupergroup') {
             throw new Error('This function only works with supergroups');
         }
@@ -283,12 +311,16 @@ export const addMembersToGroup = async (chatId, userIds) => {
 
 /**
  * Remove a member from a chat
+ * @param {string} accountID - Account ID
  * @param {number} chatId - Chat ID
  * @param {number} userId - User ID to remove
  * @returns {Promise<Object>} Result of remove operation
  */
-export const removeMemberFromGroup = async (chatId, userId) => {
+export const removeMemberFromGroup = async (accountID, chatId, userId) => {
     try {
+        const client = getClient(accountID);
+        if (!client) throw new Error('No active session found');
+        
         if (!chatId || (typeof chatId !== 'number' && typeof chatId !== 'string')) {
             throw new Error('Valid chat ID is required');
         }
@@ -320,18 +352,22 @@ export const removeMemberFromGroup = async (chatId, userId) => {
 
 /**
  * Get chat members
+ * @param {string} accountID - Account ID
  * @param {number} chatId - Chat ID
  * @param {number} limit - Maximum number of members to retrieve
  * @param {number} offset - Offset for pagination
  * @returns {Promise<Object>} List of chat members
  */
-export const getChatMembers = async (chatId, limit = 200, offset = 0) => {
+export const getChatMembers = async (accountID, chatId, limit = 200, offset = 0) => {
     try {
+        const client = getClient(accountID);
+        if (!client) throw new Error('No active session found');
+        
         if (!chatId || (typeof chatId !== 'number' && typeof chatId !== 'string')) {
             throw new Error('Valid chat ID is required');
         }
 
-        const chatDetails = await getChatDetails(chatId);
+        const chatDetails = await getChatDetails(accountID, chatId);
         const chatType = chatDetails.data.chatType;
 
         let members;
@@ -368,11 +404,15 @@ export const getChatMembers = async (chatId, limit = 200, offset = 0) => {
 
 /**
  * Leave a chat
+ * @param {string} accountID - Account ID
  * @param {number} chatId - Chat ID to leave
  * @returns {Promise<Object>} Result of leave operation
  */
-export const leaveChat = async (chatId) => {
+export const leaveChat = async (accountID, chatId) => {
     try {
+        const client = getClient(accountID);
+        if (!client) throw new Error('No active session found');
+        
         if (!chatId || (typeof chatId !== 'number' && typeof chatId !== 'string')) {
             throw new Error('Valid chat ID is required');
         }
@@ -397,11 +437,15 @@ export const leaveChat = async (chatId) => {
 
 /**
  * Delete a chat
+ * @param {string} accountID - Account ID
  * @param {number} chatId - Chat ID to delete
  * @returns {Promise<Object>} Result of delete operation
  */
-export const deleteChat = async (chatId) => {
+export const deleteChat = async (accountID, chatId) => {
     try {
+        const client = getClient(accountID);
+        if (!client) throw new Error('No active session found');
+        
         if (!chatId || (typeof chatId !== 'number' && typeof chatId !== 'string')) {
             throw new Error('Valid chat ID is required');
         }
@@ -426,12 +470,16 @@ export const deleteChat = async (chatId) => {
 
 /**
  * Set chat title (works for basic groups and supergroups)
+ * @param {string} accountID - Account ID
  * @param {number} chatId - Chat ID
  * @param {string} title - New title
  * @returns {Promise<Object>} Result of operation
  */
-export const setChatTitle = async (chatId, title) => {
+export const setChatTitle = async (accountID, chatId, title) => {
     try {
+        const client = getClient(accountID);
+        if (!client) throw new Error('No active session found');
+        
         if (!chatId || (typeof chatId !== 'number' && typeof chatId !== 'string')) {
             throw new Error('Valid chat ID is required');
         }
@@ -460,12 +508,16 @@ export const setChatTitle = async (chatId, title) => {
 
 /**
  * Set chat description (works for supergroups and channels)
+ * @param {string} accountID - Account ID
  * @param {number} chatId - Chat ID
  * @param {string} description - New description
  * @returns {Promise<Object>} Result of operation
  */
-export const setChatDescription = async (chatId, description = "") => {
+export const setChatDescription = async (accountID, chatId, description = "") => {
     try {
+        const client = getClient(accountID);
+        if (!client) throw new Error('No active session found');
+        
         if (!chatId || (typeof chatId !== 'number' && typeof chatId !== 'string')) {
             throw new Error('Valid chat ID is required');
         }
@@ -491,12 +543,16 @@ export const setChatDescription = async (chatId, description = "") => {
 
 /**
  * Set chat permissions (for supergroups)
+ * @param {string} accountID - Account ID
  * @param {number} chatId - Chat ID
  * @param {Object} permissions - Chat permissions object
  * @returns {Promise<Object>} Result of operation
  */
-export const setChatPermissions = async (chatId, permissions) => {
+export const setChatPermissions = async (accountID, chatId, permissions) => {
     try {
+        const client = getClient(accountID);
+        if (!client) throw new Error('No active session found');
+        
         if (!chatId || (typeof chatId !== 'number' && typeof chatId !== 'string')) {
             throw new Error('Valid chat ID is required');
         }
