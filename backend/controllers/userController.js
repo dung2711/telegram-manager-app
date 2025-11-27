@@ -1,6 +1,32 @@
 import { getClient } from '../services/tdClient.js';
 
 /**
+ * Get own user information
+ * @param {string} accountID - Account ID
+ * @returns {Promise<Object>} Own user details
+ */
+export const getMe = async (accountID) => {
+    try {
+        const client = getClient(accountID);
+        if (!client) throw new Error('No active session found');
+        
+        const me = await client.invoke({
+            _: "getMe"
+        });
+        return {
+            success: true,
+            data: me
+        };
+    } catch (error) {
+        console.error('Error fetching own user info:', error);
+        throw {
+            success: false,
+            error: error.message || 'Failed to fetch user info'
+        };
+    }
+}
+
+/**
  * Get all contacts
  * @param {string} accountID - Account ID
  * @returns {Promise<Object>} List of contacts with user IDs

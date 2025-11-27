@@ -1,7 +1,18 @@
 import express from 'express';
-import { getContactsDetails, getUserById, addContacts, removeContacts } from "../controllers/userController.js";
+import { getContactsDetails, getUserById, addContacts, removeContacts, getMe } from "../controllers/userController.js";
 
 const router = express.Router();
+
+router.get('/:accountID', async (req, res) => {
+    try {
+        const { accountID } = req.params;
+        const result = await getMe(accountID);
+        res.status(200).json(result);
+    } catch (error) {
+        res.status(500).json(error);
+    }
+});
+
 
 /**
  * GET /api/users/:accountID/contacts

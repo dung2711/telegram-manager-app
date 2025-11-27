@@ -52,9 +52,10 @@ router.get('/:accountID', async (req, res) => {
     try {
         const { accountID } = req.params;
         const result = await getChats(accountID);
+        console.log(result);
         if(result.success) {
             const chatDetails = await Promise.all(
-                result.data.chats.map(async (chatId) => {
+                result.data.map(async (chatId) => {
                     try {
                         const detail = await getChatDetails(accountID, chatId);
                         const members = await getChatMembers(accountID, chatId);

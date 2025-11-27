@@ -12,15 +12,13 @@ export const getChats = async (accountID, limit = 100, chatList = "chatListMain"
         const client = getClient(accountID);
         if (!client) throw new Error('No active session found');
         
-        const validLimits = [20, 50, 100, 200];
-        const safeLimit = validLimits.includes(limit) ? limit : 100;
 
         const chats = await client.invoke({
             _: "getChats",
             chat_list: {
                 _: chatList
             },
-            limit: safeLimit
+            limit: limit
         });
 
         return {
@@ -59,7 +57,7 @@ export const getChatDetails = async (accountID, chatId) => {
 
         let detail = null;
         let chatType = chat.type._;
-
+        
         switch (chatType) {
             case "chatTypeBasicGroup":
                 detail = await client.invoke({
@@ -92,7 +90,7 @@ export const getChatDetails = async (accountID, chatId) => {
 
         return {
             success: true,
-            data: { chat, detail }
+            data: { chat, detail, chatType }
         };
     } catch (error) {
         console.error(`Error fetching chat details for ${chatId}:`, error);
@@ -369,6 +367,7 @@ export const getChatMembers = async (accountID, chatId, limit = 200, offset = 0)
 
         const chatDetails = await getChatDetails(accountID, chatId);
         const chatType = chatDetails.data.chatType;
+        console.log('Fetching members for chat type:', chatType);
 
         let members;
         if (chatType === 'chatTypeSupergroup') {
@@ -380,10 +379,20 @@ export const getChatMembers = async (accountID, chatId, limit = 200, offset = 0)
                 limit: limit
             });
         } else if (chatType === 'chatTypeBasicGroup') {
-            members = await client.invoke({
+            const fullInfo = await client.invoke({
                 _: "getBasicGroupFullInfo",
                 basic_group_id: chatDetails.data.chat.type.basic_group_id
             });
+            members = {
+                members: fullInfo.members,
+                total_count: fullInfo.members?.length || 0
+            };
+        } else if (chatType === 'chatTypePrivate') {
+            // Private chats don't have members list, return the user info
+            members = {
+                members: [chatDetails.data.detail],
+                total_count: 1
+            };
         } else {
             throw new Error('Chat type does not support member listing');
         }

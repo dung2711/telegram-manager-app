@@ -61,11 +61,11 @@ export const verifyAuthCode = async (accountID, code) => {
         });
         
         // Update account status
-        await Account.findOneAndUpdate(
-            { accountID },
-            { isAuthenticated: true },
-            { new: true }
-        );
+        // await Account.findOneAndUpdate(
+        //     { accountID },
+        //     { isAuthenticated: true },
+        //     { new: true }
+        // );
         
         return {
             success: true,
