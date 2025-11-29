@@ -1,4 +1,5 @@
 import { getClient } from '../services/tdClient.js';
+import { recordLog } from '../services/auditService.js';
 
 /**
  * Get own user information
@@ -172,8 +173,28 @@ export const addContacts = async (accountID, contacts) => {
             contacts: contacts
         });
 
+        // [LOG SUCCESS]
+        recordLog({
+            accountID,
+            action: 'IMPORT_CONTACTS',
+            targetName: `${contacts.length} Contacts`,
+            payload: { 
+                importedCount: contacts.length,
+                result: result 
+            },
+            status: 'SUCCESS'
+        });
+
         return result
     } catch (error) {
+        // [LOG FAILURE]
+        recordLog({
+            accountID,
+            action: 'IMPORT_CONTACTS',
+            payload: { requestCount: contacts?.length },
+            status: 'FAILURE',
+            errorMessage: error.message
+        });
         console.error('Error adding contacts:', error);
         throw {
             error: error.message || 'Failed to add contacts'
@@ -194,9 +215,25 @@ export const removeContacts = async (accountID, userIds) => {
             _: "removeContacts",
             user_ids: userIds
         });
+        // [LOG SUCCESS]
+        recordLog({
+            accountID,
+            action: 'REMOVE_CONTACTS',
+            targetName: `${userIds.length} Contacts`,
+            payload: { result: result },
+            status: 'SUCCESS'
+        });
         
         return result;
     } catch (error) {
+        // [LOG FAILURE]
+        recordLog({
+            accountID,
+            action: 'REMOVE_CONTACTS',
+            payload: { userIds },
+            status: 'FAILURE',
+            errorMessage: error.message
+        });
         console.error('Error removing contacts:', error);
         throw {
             error: error.message || 'Failed to remove contacts'

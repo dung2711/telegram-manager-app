@@ -11,5 +11,12 @@ export const createTDLibClient = (accountID) => {
             use_secret_chats: true,
         }
     });
+    client.on('error', console.error)
+
+    // Aside of receiving responses to your requests, the server can push to you
+    // events called "updates" which can be received as follows:
+    // client.on('update', update => {
+    // console.log('Received update:', update)
+    // });
     return client;
 }

@@ -1,4 +1,5 @@
 import { getClient } from '../services/tdClient.js';
+import { getChatTitle, recordLog, getUserFullName } from '../services/auditService.js';
 
 /**
  * Get chats with pagination and filtering options
@@ -128,6 +129,19 @@ export const createBasicGroupChat = async (accountID, userIds, title) => {
             user_ids: userIds,
             title: title.trim()
         });
+        // --- THÊM DÒNG NÀY ĐỂ DEBUG ---
+        console.log("DEBUG CHAT OBJECT:", JSON.stringify(chat, null, 2)); 
+        // ------------------------------
+
+        // Log success
+        recordLog({
+            accountID,
+            action: 'CREATE_BASIC_GROUP',
+            targetId: chat.chat_id,
+            targetName: title.trim(),
+            payload: { chat },
+            status: 'SUCCESS'
+        });
 
         return {
             success: true,
@@ -136,6 +150,17 @@ export const createBasicGroupChat = async (accountID, userIds, title) => {
         };
     } catch (error) {
         console.error('Error creating basic group:', error);
+
+        // Log failure
+        recordLog({
+            accountID,
+            action: 'CREATE_BASIC_GROUP',
+            targetName: title,
+            payload: { userIds },
+            status: 'FAILURE',
+            errorMessage: error.message
+        });
+
         throw {
             success: false,
             error: error.message || 'Failed to create basic group'
@@ -163,12 +188,34 @@ export const createNewSecretChat = async (accountID, userId) => {
             user_id: userId
         });
 
+        // Lấy tên người được tạo chat cùng
+        const partnerName = await getUserFullName(client, userId);
+
+        // [LOG SUCCESS]
+        recordLog({
+            accountID,
+            action: 'CREATE_SECRET_CHAT',
+            targetId: chat.chat_id,
+            targetName: partnerName,
+            payload: { chat },
+            status: 'SUCCESS'
+        });
+
         return {
             success: true,
             data: chat,
             message: 'Secret chat created successfully'
         };
     } catch (error) {
+        // [LOG FAILURE]
+        recordLog({
+            accountID,
+            action: 'CREATE_SECRET_CHAT',
+            payload: { partnerUserId: userId },
+            status: 'FAILURE',
+            errorMessage: error.message
+        });
+
         console.error('Error creating secret chat:', error);
         throw {
             success: false,
@@ -206,12 +253,32 @@ export const createNewSupergroupChat = async (accountID, title, isChannel = fals
             location: location.trim()
         });
 
+        // [LOG SUCCESS]
+        recordLog({
+            accountID,
+            action: isChannel ? 'CREATE_CHANNEL' : 'CREATE_SUPERGROUP',
+            targetId: chat.chat_id,
+            targetName: title.trim(),
+            payload: { chat },
+            status: 'SUCCESS'
+        });
+
         return {
             success: true,
             data: chat,
             message: `${isChannel ? 'Channel' : 'Supergroup'} "${title}" created successfully`
         };
     } catch (error) {
+        // [LOG FAILURE]
+        recordLog({
+            accountID,
+            action: isChannel ? 'CREATE_CHANNEL' : 'CREATE_SUPERGROUP',
+            targetName: title,
+            payload: { description },
+            status: 'FAILURE',
+            errorMessage: error.message
+        });
+
         console.error('Error creating supergroup/channel:', error);
         throw {
             success: false,
@@ -250,11 +317,37 @@ export const addMemberToGroup = async (accountID, chatId, userId, forwardLimit =
             forward_limit: forwardLimit
         });
 
+        // Lấy thông tin phụ trợ cho log 
+        const [chatTitle, userName] = await Promise.all([
+            getChatTitle(client, chatId),
+            getUserFullName(client, userId)
+        ]);
+
+        // [LOG SUCCESS]
+        recordLog({
+            accountID,
+            action: 'ADD_MEMBER',
+            targetId: chatId,
+            targetName: chatTitle,
+            payload: { addedUserId: userId, addedUserName: userName, forwardLimit },
+            status: 'SUCCESS'
+        });
+
         return {
             success: true,
             message: `User ${userId} added to chat ${chatId} successfully`
         };
     } catch (error) {
+        // [LOG FAILURE]
+        recordLog({
+            accountID,
+            action: 'ADD_MEMBER',
+            targetId: chatId,
+            payload: { userId, forwardLimit },
+            status: 'FAILURE',
+            errorMessage: error.message
+        });
+
         console.error(`Error adding user ${userId} to chat ${chatId}:`, error);
         throw {
             success: false,
@@ -293,12 +386,37 @@ export const addMembersToGroup = async (accountID, chatId, userIds) => {
             chat_id: chatId,
             user_ids: userIds
         });
+        // Lấy tên nhóm để log
+        const chatTitle = chatDetails.data.chat.title;
+
+        // [LOG SUCCESS]
+        recordLog({
+            accountID,
+            action: 'ADD_MEMBERS_BATCH',
+            targetId: chatId,
+            targetName: chatTitle,
+            payload: { 
+                addedUserIds: userIds, 
+                count: userIds.length 
+            },
+            status: 'SUCCESS'
+        });
 
         return {
             success: true,
             message: `${userIds.length} user(s) added to supergroup successfully`
         };
     } catch (error) {
+        // [LOG FAILURE]
+        recordLog({
+            accountID,
+            action: 'ADD_MEMBERS_BATCH',
+            targetId: chatId,
+            payload: { userIds },
+            status: 'FAILURE',
+            errorMessage: error.message
+        });
+
         console.error(`Error adding members to supergroup ${chatId}:`, error);
         throw {
             success: false,
@@ -334,12 +452,36 @@ export const removeMemberFromGroup = async (accountID, chatId, userId) => {
                 _: "chatMemberStatusLeft"
             }
         });
+        // Lấy thông tin cho log
+        const [chatTitle, userName] = await Promise.all([
+            getChatTitle(client, chatId),
+            getUserFullName(client, userId)
+        ]);
+
+        // [LOG SUCCESS]
+        recordLog({
+            accountID,
+            action: 'REMOVE_MEMBER',
+            targetId: chatId,
+            targetName: chatTitle,
+            payload: { removedUserId: userId, removedUserName: userName },
+            status: 'SUCCESS'
+        });
 
         return {
             success: true,
             message: `User ${userId} removed from chat ${chatId} successfully`
         };
     } catch (error) {
+        // [LOG FAILURE]
+        recordLog({
+            accountID,
+            action: 'REMOVE_MEMBER',
+            targetId: chatId,
+            payload: { userId },
+            status: 'FAILURE',
+            errorMessage: error.message
+        });
         console.error(`Error removing user ${userId} from chat ${chatId}:`, error);
         throw {
             success: false,
@@ -425,10 +567,21 @@ export const leaveChat = async (accountID, chatId) => {
         if (!chatId || (typeof chatId !== 'number' && typeof chatId !== 'string')) {
             throw new Error('Valid chat ID is required');
         }
+        // Lấy tên nhóm trước khi rời
+        const chatTitle = await getChatTitle(client, chatId);
 
         await client.invoke({
             _: "leaveChat",
             chat_id: chatId
+        });
+        
+        // [LOG SUCCESS]
+        recordLog({
+            accountID,
+            action: 'LEAVE_CHAT',
+            targetId: chatId,
+            targetName: chatTitle,
+            status: 'SUCCESS'
         });
 
         return {
@@ -436,6 +589,14 @@ export const leaveChat = async (accountID, chatId) => {
             message: `Left chat ${chatId} successfully`
         };
     } catch (error) {
+        // [ LOG FAILURE]
+        recordLog({
+            accountID,
+            action: 'LEAVE_CHAT',
+            targetId: chatId,
+            status: 'FAILURE',
+            errorMessage: error.message
+        });
         console.error(`Error leaving chat ${chatId}:`, error);
         throw {
             success: false,
@@ -459,9 +620,21 @@ export const deleteChat = async (accountID, chatId) => {
             throw new Error('Valid chat ID is required');
         }
 
+        // Lấy tên nhóm trước khi xoá
+        const chatTitle = await getChatTitle(client, chatId);
+
         await client.invoke({
             _: "deleteChat",
             chat_id: chatId
+        });
+
+        // [LOG SUCCESS]
+        recordLog({
+            accountID,
+            action: 'DELETE_CHAT',
+            targetId: chatId,
+            targetName: chatTitle,
+            status: 'SUCCESS'
         });
 
         return {
@@ -469,6 +642,14 @@ export const deleteChat = async (accountID, chatId) => {
             message: `Chat ${chatId} deleted successfully`
         };
     } catch (error) {
+        // [LOG FAILURE]
+        recordLog({
+            accountID,
+            action: 'DELETE_CHAT',
+            targetId: chatId,
+            status: 'FAILURE',
+            errorMessage: error.message
+        });
         console.error(`Error deleting chat ${chatId}:`, error);
         throw {
             success: false,
@@ -496,10 +677,22 @@ export const setChatTitle = async (accountID, chatId, title) => {
             throw new Error('Valid title is required');
         }
 
+        const oldTitle = await getChatTitle(client, chatId);
+
         await client.invoke({
             _: "setChatTitle",
             chat_id: chatId,
             title: title.trim()
+        });
+
+        // [LOG SUCCESS]
+        recordLog({
+            accountID,
+            action: 'UPDATE_CHAT_TITLE',
+            targetId: chatId,
+            targetName: oldTitle.trim(), 
+            payload: { newTitle: title.trim() },
+            status: 'SUCCESS'
         });
 
         return {
@@ -507,6 +700,15 @@ export const setChatTitle = async (accountID, chatId, title) => {
             message: `Chat title updated to "${title}" successfully`
         };
     } catch (error) {
+        // [LOG FAILURE]
+        recordLog({
+            accountID,
+            action: 'UPDATE_CHAT_TITLE',
+            targetId: chatId,
+            payload: { attemptedTitle: title },
+            status: 'FAILURE',
+            errorMessage: error.message
+        });
         console.error(`Error updating chat title for ${chatId}:`, error);
         throw {
             success: false,
@@ -536,12 +738,32 @@ export const setChatDescription = async (accountID, chatId, description = "") =>
             chat_id: chatId,
             description: description.trim()
         });
+        // Lấy tên nhóm để log 
+        const chatTitle = await getChatTitle(client, chatId);
+
+        // [LOG SUCCESS]
+        recordLog({
+            accountID,
+            action: 'UPDATE_CHAT_DESCRIPTION',
+            targetId: chatId,
+            targetName: chatTitle,
+            payload: { newDescription: description.trim() },
+            status: 'SUCCESS'
+        });
 
         return {
             success: true,
             message: 'Chat description updated successfully'
         };
     } catch (error) {
+        // [LOG FAILURE]
+        recordLog({
+            accountID,
+            action: 'UPDATE_CHAT_DESCRIPTION',
+            targetId: chatId,
+            status: 'FAILURE',
+            errorMessage: error.message
+        });
         console.error(`Error updating chat description for ${chatId}:`, error);
         throw {
             success: false,
@@ -587,12 +809,32 @@ export const setChatPermissions = async (accountID, chatId, permissions) => {
             chat_id: chatId,
             permissions: defaultPermissions
         });
+         // Lấy tên nhóm để log 
+        const chatTitle = await getChatTitle(client, chatId);
+
+        // [LOG SUCCESS]
+        recordLog({
+            accountID,
+            action: 'UPDATE_CHAT_PERMISSIONS',
+            targetId: chatId,
+            targetName: chatTitle,
+            payload: { permissions: defaultPermissions },
+            status: 'SUCCESS'
+        });
 
         return {
             success: true,
             message: 'Chat permissions updated successfully'
         };
     } catch (error) {
+        // [LOG FAILURE]
+        recordLog({
+            accountID,
+            action: 'UPDATE_CHAT_PERMISSIONS',
+            targetId: chatId,
+            status: 'FAILURE',
+            errorMessage: error.message
+        });
         console.error(`Error updating chat permissions for ${chatId}:`, error);
         throw {
             success: false,
