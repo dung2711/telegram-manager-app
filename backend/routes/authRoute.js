@@ -1,90 +1,109 @@
 import express from 'express';
-import { loginUser, verifyAuthCode, verifyPassword } from '../controllers/authController.js';
+import { authenticate } from '../middlewares/auth.js';
+import { rateLimit } from '../middlewares/rateLimit.js';
+
+// User auth controllers
+import { 
+  register, 
+  login, 
+  refreshToken, 
+  logout,
+  getCurrentUser 
+} from '../controllers/userAuthController.js';
+
+// Telegram auth controllers
+import { 
+  loginTelegram, 
+  verifyAuthCode, 
+  verifyPassword,
+  getMyAccounts
+} from '../controllers/telegramAuthController.js';
 
 const router = express.Router();
 
-/**
- * @route POST /api/auth/login
- * @desc Initiate login with phone number
- * @body { phoneNumber }
- */
-router.post('/login', async (req, res) => {
-    try {
-        const { phoneNumber } = req.body;
-
-        if (!phoneNumber) {
-            return res.status(400).json({
-                success: false,
-                error: 'Phone number is required'
-            });
-        }
-
-        const result = await loginUser(phoneNumber);
-        res.json(result);
-
-    } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Login failed'
-        });
-    }
-});
+// ========== USER AUTH ROUTES ==========
 
 /**
- * @route POST /api/auth/verify-code
- * @desc Verify authentication code
- * @body { accountID, code }
+ * @route   POST /api/auth/register
+ * @desc    Đăng ký user mới
+ * @access  Public
  */
-router.post('/verify-code', async (req, res) => {
-    try {
-        const { accountID, code } = req.body;
-
-        if (!accountID || !code) {
-            return res.status(400).json({
-                success: false,
-                error: 'Account ID and code are required'
-            });
-        }
-
-        const result = await verifyAuthCode(accountID, code);
-        res.json(result);
-
-    } catch (error) {
-        console.error('Code verification error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Code verification failed'
-        });
-    }
-});
+router.post('/register', 
+  rateLimit('register', 3, 60 * 60 * 1000), // 3 lần/giờ
+  register
+);
 
 /**
- * @route POST /api/auth/verify-password
- * @desc Verify 2FA password
- * @body { accountID, password }
+ * @route   POST /api/auth/login
+ * @desc    Đăng nhập user
+ * @access  Public
  */
-router.post('/verify-password', async (req, res) => {
-    try {
-        const { accountID, password } = req.body;
+router.post('/login', 
+  rateLimit('login', 5, 15 * 60 * 1000), // 5 lần/15 phút
+  login
+);
 
-        if (!accountID || !password) {
-            return res.status(400).json({
-                success: false,
-                error: 'Account ID and password are required'
-            });
-        }
+/**
+ * @route   POST /api/auth/refresh
+ * @desc    Refresh access token
+ * @access  Public
+ */
+router.post('/refresh', refreshToken);
 
-        const result = await verifyPassword(accountID, password);
-        res.json(result);
+/**
+ * @route   POST /api/auth/logout
+ * @desc    Đăng xuất user
+ * @access  Private
+ */
+router.post('/logout', authenticate, logout);
 
-    } catch (error) {
-        console.error('Password verification error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message || 'Password verification failed'
-        });
-    }
-});
+/**
+ * @route   GET /api/auth/me
+ * @desc    Lấy thông tin user hiện tại
+ * @access  Private
+ */
+router.get('/me', authenticate, getCurrentUser);
+
+// ========== TELEGRAM AUTH ROUTES ==========
+
+/**
+ * @route   POST /api/auth/telegram/login
+ * @desc    Bắt đầu đăng nhập Telegram
+ * @access  Private (phải login vào hệ thống trước)
+ */
+router.post('/telegram/login', 
+  authenticate,
+  rateLimit('telegram-login', 5, 15 * 60 * 1000), // 5 lần/15 phút
+  loginTelegram
+);
+
+/**
+ * @route   POST /api/auth/telegram/verify-code
+ * @desc    Xác thực mã code từ Telegram
+ * @access  Private
+ */
+router.post('/telegram/verify-code', 
+  authenticate,
+  rateLimit('verify-code', 5, 15 * 60 * 1000),
+  verifyAuthCode
+);
+
+/**
+ * @route   POST /api/auth/telegram/verify-password
+ * @desc    Xác thực 2FA password
+ * @access  Private
+ */
+router.post('/telegram/verify-password', 
+  authenticate,
+  rateLimit('verify-password', 3, 15 * 60 * 1000),
+  verifyPassword
+);
+
+/**
+ * @route   GET /api/auth/telegram/accounts
+ * @desc    Lấy danh sách Telegram accounts của user
+ * @access  Private
+ */
+router.get('/telegram/accounts', authenticate, getMyAccounts);
 
 export default router;

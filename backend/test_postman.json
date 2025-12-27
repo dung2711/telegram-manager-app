@@ -1,0 +1,732 @@
+{
+  "info": {
+    "name": "Telegram Manager API",
+    "description": "Complete API collection for Telegram Manager App",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "accountID",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. User Authentication",
+      "item": [
+        {
+          "name": "Register New User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', response.data.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', response.data.refreshToken);",
+                  "    pm.collectionVariables.set('userId', response.data.user.id);",
+                  "    console.log('✅ Registered successfully');",
+                  "    console.log('User ID:', response.data.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"fullname\": \"Test User\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Đăng ký user mới vào hệ thống"
+          },
+          "response": []
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', response.data.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', response.data.refreshToken);",
+                  "    pm.collectionVariables.set('userId', response.data.user.id);",
+                  "    console.log('✅ Login successfully');",
+                  "    console.log('Access Token:', response.data.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Đăng nhập vào hệ thống để lấy JWT tokens"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "Lấy thông tin user đang đăng nhập"
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Access Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', response.data.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', response.data.refreshToken);",
+                  "    console.log('✅ Token refreshed');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "refresh"]
+            },
+            "description": "Làm mới access token khi hết hạn"
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            },
+            "description": "Đăng xuất và vô hiệu hóa session"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Telegram Authentication",
+      "item": [
+        {
+          "name": "Login Telegram (Step 1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('accountID', response.accountID);",
+                  "    console.log('✅ Code sent to Telegram');",
+                  "    console.log('Account ID:', response.accountID);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"+84773351804\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/telegram/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "telegram", "login"]
+            },
+            "description": "Bắt đầu đăng nhập Telegram. Nhập số điện thoại có dạng +84xxxxxxxxx"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Code (Step 2)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountID\": \"{{accountID}}\",\n  \"code\": \"12345\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/telegram/verify-code",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "telegram", "verify-code"]
+            },
+            "description": "Xác thực mã code nhận được từ Telegram"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify 2FA Password (Step 3 - Optional)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountID\": \"{{accountID}}\",\n  \"password\": \"your_2fa_password\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/telegram/verify-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "telegram", "verify-password"]
+            },
+            "description": "Nếu tài khoản Telegram có bật 2FA thì cần step này"
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Telegram Accounts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/telegram/accounts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "telegram", "accounts"]
+            },
+            "description": "Lấy danh sách tất cả Telegram accounts của user"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Audit Logs",
+      "item": [
+        {
+          "name": "Get Logs by Account",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/logs?accountID={{accountID}}&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "logs"],
+              "query": [
+                {
+                  "key": "accountID",
+                  "value": "{{accountID}}",
+                  "description": "Account ID (required)"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Items per page"
+                },
+                {
+                  "key": "action",
+                  "value": "TELEGRAM_LOGIN_INITIATED",
+                  "disabled": true,
+                  "description": "Filter by action"
+                },
+                {
+                  "key": "status",
+                  "value": "SUCCESS",
+                  "disabled": true,
+                  "description": "Filter by status (SUCCESS/FAILURE)"
+                },
+                {
+                  "key": "startDate",
+                  "value": "2024-01-01",
+                  "disabled": true,
+                  "description": "Start date (YYYY-MM-DD)"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-12-31",
+                  "disabled": true,
+                  "description": "End date (YYYY-MM-DD)"
+                }
+              ]
+            },
+            "description": "Lấy logs của một Telegram account cụ thể"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/logs/all?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "logs", "all"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "action",
+                  "value": "TELEGRAM_LOGIN_INITIATED",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "SUCCESS",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Lấy tất cả logs của tất cả accounts thuộc user"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Test Cases",
+      "item": [
+        {
+          "name": "Test Rate Limit - Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"wrongpassword\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Gửi request này 6 lần liên tiếp để test rate limiting (5 lần/15 phút)"
+          },
+          "response": []
+        },
+        {
+          "name": "Test Unauthorized Access",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "Test access endpoint mà không có token (expect 401)"
+          },
+          "response": []
+        },
+        {
+          "name": "Test Invalid Token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer invalid_token_here"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "Test với token không hợp lệ (expect 401)"
+          },
+          "response": []
+        },
+        {
+          "name": "Test Path Traversal Protection",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountID\": \"../../../etc/passwd\",\n  \"code\": \"12345\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/telegram/verify-code",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "telegram", "verify-code"]
+            },
+            "description": "Test path traversal attack (expect 500 với error 'Invalid accountID format')"
+          },
+          "response": []
+        },
+        {
+          "name": "Test Invalid Phone Format",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"123456789\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/telegram/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "telegram", "login"]
+            },
+            "description": "Test phone number không có dấu + (expect 500 với error message về format)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. User Management APIs",
+      "item": [
+        {
+          "name": "Get My Telegram Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me?accountID={{accountID}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "me"],
+              "query": [
+                {
+                  "key": "accountID",
+                  "value": "{{accountID}}"
+                }
+              ]
+            },
+            "description": "Lấy thông tin Telegram user của account (id, username, first_name, last_name, phone_number, etc.)"
+          }
+        },
+        {
+          "name": "Get All Contacts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/contacts?accountID={{accountID}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "contacts"],
+              "query": [
+                {
+                  "key": "accountID",
+                  "value": "{{accountID}}"
+                }
+              ]
+            },
+            "description": "Lấy danh sách tất cả contacts (chỉ trả về user_ids)"
+          }
+        },
+        {
+          "name": "Get Contacts Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/contacts/details?accountID={{accountID}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "contacts", "details"],
+              "query": [
+                {
+                  "key": "accountID",
+                  "value": "{{accountID}}"
+                },
+                {
+                  "key": "userIds",
+                  "value": "123456789,987654321",
+                  "disabled": true,
+                  "description": "Optional: comma-separated user IDs"
+                }
+              ]
+            },
+            "description": "Lấy thông tin chi tiết của contacts. Nếu không truyền userIds thì lấy tất cả contacts."
+          }
+        },
+        {
+          "name": "Get User By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/123456789?accountID={{accountID}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "123456789"],
+              "query": [
+                {
+                  "key": "accountID",
+                  "value": "{{accountID}}"
+                }
+              ]
+            },
+            "description": "Lấy thông tin chi tiết của 1 user cụ thể. Thay 123456789 bằng Telegram user ID thật."
+          }
+        },
+        {
+          "name": "Search Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/search/query?accountID={{accountID}}&q=john",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "search", "query"],
+              "query": [
+                {
+                  "key": "accountID",
+                  "value": "{{accountID}}"
+                },
+                {
+                  "key": "q",
+                  "value": "john",
+                  "description": "Search query (username or phone)"
+                }
+              ]
+            },
+            "description": "Tìm kiếm users theo username hoặc phone number"
+          }
+        },
+        {
+          "name": "Add Contacts",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountID\": \"{{accountID}}\",\n  \"contacts\": [\n    {\n      \"phone_number\": \"+84912345678\",\n      \"first_name\": \"John\",\n      \"last_name\": \"Doe\"\n    },\n    {\n      \"phone_number\": \"+84987654321\",\n      \"first_name\": \"Jane\",\n      \"last_name\": \"Smith\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/contacts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "contacts"]
+            },
+            "description": "Thêm/Import contacts vào Telegram. Mỗi contact cần có phone_number (bắt buộc), first_name và last_name (optional)."
+          }
+        },
+        {
+          "name": "Remove Contacts",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountID\": \"{{accountID}}\",\n  \"userIds\": [123456789, 987654321]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/contacts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "contacts"]
+            },
+            "description": "Xóa contacts khỏi Telegram. Truyền array các Telegram user IDs."
+          }
+        }
+      ]
+    }
+  ]
+}
