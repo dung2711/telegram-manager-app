@@ -192,7 +192,7 @@ router.post('/',
  * @body    accountID, userId (single) OR userIds (multiple)
  */
 router.post('/:id/members',
-  rateLimit('add-members', 20, 60 * 60 * 1000), // 20 lần/giờ
+  rateLimit('add-members', 200, 60 * 60 * 1000), // 200 lần/giờ
   async (req, res) => {
     try {
       const { accountID, userId, userIds, forwardLimit } = req.body;

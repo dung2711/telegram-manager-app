@@ -319,13 +319,26 @@ export const createNewSupergroupChat = async (accountID, title, isChannel = fals
       throw new Error('isChannel must be a boolean');
     }
 
-    const chat = await client.invoke({
+    const requestPayload = {
       _: "createNewSupergroupChat",
       title: title.trim(),
-      is_channel: isChannel,
-      description: description.trim(),
-      location: location.trim()
-    });
+      is_channel: !!isChannel, 
+      description: description ? description.trim() : ""
+    };
+
+    if (location && typeof location === 'object' && location.latitude && location.longitude) {
+       requestPayload.location = {
+         _: "chatLocation",
+         location: {
+           _: "location",
+           latitude: location.latitude,
+           longitude: location.longitude
+         }
+       };
+    }
+
+    // Gọi TDLib với payload đã sửa
+    const chat = await client.invoke(requestPayload);
 
     // Log success
     await recordLog({
@@ -634,7 +647,16 @@ export const getChatMembers = async (accountID, chatId, userId, limit = 200, off
         members: [chatDetails.data.detail],
         total_count: 1
       };
-    } else {
+    } else if (chatType === 'chatTypeSecret') {
+        const partnerId = chatDetails.data.detail.user_id;
+
+        members = [{
+          members: [partnerId], 
+          total_count: 1
+        }];
+        
+        
+    }else {
       throw new Error('Chat type does not support member listing');
     }
 
