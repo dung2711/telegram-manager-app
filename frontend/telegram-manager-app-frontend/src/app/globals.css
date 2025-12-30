@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Render font sắc nét hơn trên MacOS */
+html, body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* FIX: Tăng độ tương phản cho placeholder và input text */
+input::placeholder,
+textarea::placeholder,
+select::placeholder {
+  color: #9CA3AF; /* gray-400 - vừa đủ nhìn thấy */
+  opacity: 0.6; /* Giảm opacity một chút để phân biệt với text thật */
+}
+
+/* Text đã nhập phải đậm và rõ ràng */
+input,
+textarea,
+select {
+  color: #111827; /* gray-900 - đen đậm */
+}
+
+/* Đảm bảo disabled state vẫn thấy được */
+input:disabled,
+textarea:disabled,
+select:disabled {
+  color: #6B7280; /* gray-500 */
+  background-color: #F9FAFB; /* gray-50 */
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Focus state */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: #3B82F6; /* blue-500 */
+}
