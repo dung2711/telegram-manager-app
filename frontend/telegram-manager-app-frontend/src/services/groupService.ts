@@ -9,13 +9,36 @@ import {
   ChatPermissions,
 } from '@/types';
 
-// Lấy settings từ localStorage
-const getDelay = () => {
+/**
+ * Get settings from localStorage
+ */
+const getSettings = () => {
   try {
-    const settings = JSON.parse(localStorage.getItem('telegram-manager-settings') || '{}');
-    return settings.bulkAddDelay || 1000;
-  } catch {
-    return 1000;
+    const stored = localStorage.getItem('telegram-manager-settings');
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error('Failed to load settings:', error);
+  }
+  return null;
+};
+
+/**
+ * Get bulk add delay from settings
+ */
+const getDelay = (): number => {
+  const settings = getSettings();
+  return settings?.bulkAddDelay || 1000;
+};
+
+/**
+ * Debug log helper
+ */
+const debugLog = (...args: any[]) => {
+  const settings = getSettings();
+  if (settings?.debugMode) {
+    console.log('[GroupService]', ...args);
   }
 };
 
@@ -24,6 +47,7 @@ export const groupService = {
    * Lấy tất cả chats với details và members
    */
   getAll: async (accountID: string, limit = 100, chatList = 'chatListMain') => {
+    debugLog('Fetching groups:', { accountID, limit, chatList });
     return apiClient.get<ChatListItem[]>('/groups', {
       params: { accountID, limit, chatList },
     });
@@ -33,6 +57,7 @@ export const groupService = {
    * Lấy chi tiết một chat/group
    */
   getDetail: async (accountID: string, chatId: string | number) => {
+    debugLog('Fetching group detail:', { accountID, chatId });
     return apiClient.get<GroupDetailResponse>(`/groups/${chatId}`, {
       params: { accountID },
     });
@@ -42,6 +67,7 @@ export const groupService = {
    * Tạo nhóm mới
    */
   create: async (data: CreateGroupRequest) => {
+    debugLog('Creating group:', data);
     return apiClient.post<ApiResponse<any>>('/groups', data);
   },
 
@@ -49,6 +75,7 @@ export const groupService = {
    * Thêm thành viên vào nhóm (single hoặc multiple)
    */
   addMembers: async (chatId: string | number, data: AddMemberRequest) => {
+    debugLog('Adding members:', { chatId, data });
     return apiClient.post<ApiResponse<void>>(`/groups/${chatId}/members`, data);
   },
 
@@ -66,6 +93,8 @@ export const groupService = {
     failed: Array<{ userId: number; error: string }>;
     alreadyMembers: number[];
   }> => {
+    debugLog('Bulk adding members:', { accountID, chatId, chatType, count: userIds.length });
+    
     const results = {
       successful: [] as number[],
       failed: [] as Array<{ userId: number; error: string }>,
@@ -82,6 +111,7 @@ export const groupService = {
       const shouldTryBatch = userIds.length >= 10;
 
       if (shouldTryBatch) {
+        debugLog('Attempting batch add for supergroup...');
         try {
           await apiClient.post(`/groups/${chatId}/members`, {
             accountID,
@@ -89,21 +119,26 @@ export const groupService = {
           });
           
           results.successful = userIds;
+          debugLog('Batch add successful:', results.successful.length);
           return results;
         } catch (batchError: any) {
           const errorMsg = batchError.response?.data?.error || '';
           
           if (errorMsg.toLowerCase().includes('already')) {
             results.alreadyMembers = userIds;
+            debugLog('All members already in group');
             return results;
           }
           
-          console.log('Batch add failed, trying individual adds...', errorMsg);
+          debugLog('Batch add failed, trying individual adds...', errorMsg);
         }
       }
     }
 
     // Basic Group OR Supergroup fallback: Add one by one
+    const delay = getDelay();
+    debugLog('Adding members individually with delay:', delay, 'ms');
+    
     for (let i = 0; i < userIds.length; i++) {
       const userId = userIds[i];
       
@@ -113,21 +148,30 @@ export const groupService = {
           userId,
         });
         results.successful.push(userId);
+        debugLog(`Added member ${i + 1}/${userIds.length}:`, userId);
       } catch (error: any) {
         const errMsg = error.response?.data?.error || 'Unknown error';
         
         if (errMsg.toLowerCase().includes('already')) {
           results.alreadyMembers.push(userId);
+          debugLog(`Member ${userId} already in group`);
         } else {
           results.failed.push({ userId, error: errMsg });
+          debugLog(`Failed to add member ${userId}:`, errMsg);
         }
       }
       
-      const delay = getDelay();
+      // Delay between requests (except for last one)
       if (i < userIds.length - 1) {
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
+
+    debugLog('Bulk add complete:', {
+      successful: results.successful.length,
+      failed: results.failed.length,
+      alreadyMembers: results.alreadyMembers.length,
+    });
 
     return results;
   },
@@ -137,6 +181,7 @@ export const groupService = {
    * Xóa thành viên khỏi nhóm
    */
   removeMember: async (accountID: string, chatId: string | number, userId: number) => {
+    debugLog('Removing member:', { accountID, chatId, userId });
     return apiClient.delete<ApiResponse<void>>(`/groups/${chatId}/members/${userId}`, {
       params: { accountID },
     });
@@ -146,6 +191,7 @@ export const groupService = {
    * Rời khỏi nhóm
    */
   leave: async (accountID: string, chatId: string | number) => {
+    debugLog('Leaving group:', { accountID, chatId });
     return apiClient.post<ApiResponse<void>>(`/groups/${chatId}/leave`, {
       accountID,
     });
@@ -155,6 +201,7 @@ export const groupService = {
    * Xóa chat/nhóm
    */
   delete: async (accountID: string, chatId: string | number) => {
+    debugLog('Deleting group:', { accountID, chatId });
     return apiClient.delete<ApiResponse<void>>(`/groups/${chatId}`, {
       params: { accountID },
     });
@@ -164,6 +211,7 @@ export const groupService = {
    * Cập nhật tên nhóm
    */
   updateTitle: async (accountID: string, chatId: string | number, title: string) => {
+    debugLog('Updating group title:', { accountID, chatId, title });
     return apiClient.patch<ApiResponse<void>>(`/groups/${chatId}/title`, {
       accountID,
       title,
@@ -174,6 +222,7 @@ export const groupService = {
    * Cập nhật mô tả nhóm
    */
   updateDescription: async (accountID: string, chatId: string | number, description: string) => {
+    debugLog('Updating group description:', { accountID, chatId });
     return apiClient.patch<ApiResponse<void>>(`/groups/${chatId}/description`, {
       accountID,
       description,
@@ -188,6 +237,7 @@ export const groupService = {
     chatId: string | number,
     permissions: Partial<ChatPermissions>
   ) => {
+    debugLog('Updating group permissions:', { accountID, chatId, permissions });
     return apiClient.patch<ApiResponse<void>>(`/groups/${chatId}/permissions`, {
       accountID,
       permissions,

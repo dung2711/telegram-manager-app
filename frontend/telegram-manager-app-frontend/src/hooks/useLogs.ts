@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { logService } from '@/services/logService';
 import { AuditLog, LogFilters } from '@/types';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/utils/toastHelper';
 
 interface UseLogsResult {
   logs: AuditLog[];

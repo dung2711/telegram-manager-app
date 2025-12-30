@@ -1,8 +1,8 @@
 // src/utils/phoneNormalizer.ts
-
 /**
  * Normalize phone number về format quốc tế
- * Default country code: +84 (Vietnam)
+ * @param phone - Raw phone number
+ * @param defaultCountryCode - Default country code (without +), e.g. '84' for Vietnam
  */
 export const normalizePhone = (phone: string, defaultCountryCode = '84'): string => {
   // Remove all spaces, dashes, parentheses
@@ -31,7 +31,7 @@ export const normalizePhone = (phone: string, defaultCountryCode = '84'): string
  * Validate phone number format
  * Rules: 10-15 digits (không tính dấu +)
  */
-export const isValidPhone = (phone: string): boolean => {
+export const isValidPhone = (phone: string, strict = true): boolean => {
   // Phải có format: +[digits]
   if (!phone.startsWith('+')) {
     return false;
@@ -41,8 +41,15 @@ export const isValidPhone = (phone: string): boolean => {
   const digits = phone.substring(1);
   
   // Check length và chỉ chứa số
-  if (!/^\d{10,15}$/.test(digits)) {
-    return false;
+  if (strict) {
+    if (!/^\d{10,15}$/.test(digits)) {
+      return false;
+    }
+  } else {
+    // Non-strict: accept 8-20 digits
+    if (!/^\d{8,20}$/.test(digits)) {
+      return false;
+    }
   }
   
   return true;
@@ -51,21 +58,33 @@ export const isValidPhone = (phone: string): boolean => {
 /**
  * Get validation error message
  */
-export const getPhoneValidationError = (rawPhone: string): string | undefined => {
+export const getPhoneValidationError = (
+  rawPhone: string,
+  strict = true
+): string | undefined => {
   if (!rawPhone || rawPhone.trim().length === 0) {
     return 'Phone number is empty';
   }
   
   const normalized = normalizePhone(rawPhone);
   
-  if (!isValidPhone(normalized)) {
+  if (!isValidPhone(normalized, strict)) {
     const digits = normalized.replace(/\D/g, '');
     
-    if (digits.length < 10) {
-      return 'Phone number too short (min 10 digits)';
-    }
-    if (digits.length > 15) {
-      return 'Phone number too long (max 15 digits)';
+    if (strict) {
+      if (digits.length < 10) {
+        return 'Phone number too short (min 10 digits)';
+      }
+      if (digits.length > 15) {
+        return 'Phone number too long (max 15 digits)';
+      }
+    } else {
+      if (digits.length < 8) {
+        return 'Phone number too short (min 8 digits)';
+      }
+      if (digits.length > 20) {
+        return 'Phone number too long (max 20 digits)';
+      }
     }
     
     return 'Invalid phone number format';

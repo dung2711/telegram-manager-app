@@ -8,20 +8,28 @@ import { normalizePhone, getPhoneValidationError } from './phoneNormalizer';
  * - One phone per line
  * - Comma-separated phones
  * - Mixed formats
+ * 
+ * @param text - Raw text input
+ * @param defaultCountryCode - Default country code from settings (without +)
+ * @param strict - Use strict validation
  */
-export const parseManualInput = (text: string): ParsedMember[] => {
+export const parseManualInput = (
+  text: string,
+  defaultCountryCode = '84',
+  strict = true
+): ParsedMember[] => {
   if (!text || text.trim().length === 0) {
     return [];
   }
-
+  
   // Split by newlines first, then by commas
   const lines = text.split('\n');
   const allPhones: string[] = [];
-
+  
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-
+    
     // Check if line contains commas
     if (trimmed.includes(',')) {
       const phones = trimmed.split(',').map(p => p.trim()).filter(Boolean);
@@ -30,12 +38,12 @@ export const parseManualInput = (text: string): ParsedMember[] => {
       allPhones.push(trimmed);
     }
   }
-
+  
   // Parse each phone number
   return allPhones.map((rawPhone, idx) => {
-    const phoneNumber = normalizePhone(rawPhone);
-    const validationError = getPhoneValidationError(rawPhone);
-
+    const phoneNumber = normalizePhone(rawPhone, defaultCountryCode);
+    const validationError = getPhoneValidationError(rawPhone, strict);
+    
     return {
       phoneNumber,
       rawPhone,
@@ -54,7 +62,7 @@ export const getManualInputStats = (members: ParsedMember[]) => {
   const valid = members.filter(m => m.isValid).length;
   const invalid = total - valid;
   const duplicates = total - new Set(members.map(m => m.phoneNumber)).size;
-
+  
   return { total, valid, invalid, duplicates };
 };
 
@@ -63,6 +71,7 @@ export const getManualInputStats = (members: ParsedMember[]) => {
  */
 export const removeDuplicates = (members: ParsedMember[]): ParsedMember[] => {
   const seen = new Set<string>();
+  
   return members.filter(member => {
     if (seen.has(member.phoneNumber)) {
       return false;

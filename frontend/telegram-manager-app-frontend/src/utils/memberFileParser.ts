@@ -5,15 +5,23 @@ import { normalizePhone, getPhoneValidationError } from './phoneNormalizer';
 /**
  * Parse CSV file
  * Format: Name,PhoneNumber
+ * 
+ * @param content - File content
+ * @param defaultCountryCode - Default country code (without +)
+ * @param strict - Use strict validation
  */
-export const parseCSV = (content: string): ParsedMember[] => {
+export const parseCSV = (
+  content: string,
+  defaultCountryCode = '84',
+  strict = true
+): ParsedMember[] => {
   const lines = content.trim().split('\n');
   if (lines.length === 0) {
     return [];
   }
 
   const members: ParsedMember[] = [];
-  
+
   // Check if has header (first line contains "name" or "phone")
   const firstLine = lines[0].toLowerCase();
   const hasHeader = firstLine.includes('name') || firstLine.includes('phone');
@@ -41,8 +49,8 @@ export const parseCSV = (content: string): ParsedMember[] => {
     }
 
     const [name, rawPhone] = parts;
-    const phoneNumber = normalizePhone(rawPhone);
-    const validationError = getPhoneValidationError(rawPhone);
+    const phoneNumber = normalizePhone(rawPhone, defaultCountryCode);
+    const validationError = getPhoneValidationError(rawPhone, strict);
 
     members.push({
       name: name || undefined,
@@ -60,8 +68,16 @@ export const parseCSV = (content: string): ParsedMember[] => {
 /**
  * Parse TXT file
  * Format: One phone number per line
+ * 
+ * @param content - File content
+ * @param defaultCountryCode - Default country code (without +)
+ * @param strict - Use strict validation
  */
-export const parseTXT = (content: string): ParsedMember[] => {
+export const parseTXT = (
+  content: string,
+  defaultCountryCode = '84',
+  strict = true
+): ParsedMember[] => {
   const lines = content.trim().split('\n');
   const members: ParsedMember[] = [];
 
@@ -69,8 +85,8 @@ export const parseTXT = (content: string): ParsedMember[] => {
     const rawPhone = lines[i].trim();
     if (!rawPhone) continue;
 
-    const phoneNumber = normalizePhone(rawPhone);
-    const validationError = getPhoneValidationError(rawPhone);
+    const phoneNumber = normalizePhone(rawPhone, defaultCountryCode);
+    const validationError = getPhoneValidationError(rawPhone, strict);
 
     members.push({
       phoneNumber,
@@ -86,27 +102,35 @@ export const parseTXT = (content: string): ParsedMember[] => {
 
 /**
  * Parse file based on extension
+ * 
+ * @param file - File to parse
+ * @param defaultCountryCode - Default country code (without +)
+ * @param strict - Use strict validation
  */
-export const parseFile = async (file: File): Promise<ParsedMember[]> => {
+export const parseFile = async (
+  file: File,
+  defaultCountryCode = '84',
+  strict = true
+): Promise<ParsedMember[]> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
     reader.onload = (e) => {
       const content = e.target?.result as string;
-      
+
       try {
         const extension = file.name.split('.').pop()?.toLowerCase();
-        
         let members: ParsedMember[];
+
         if (extension === 'csv') {
-          members = parseCSV(content);
+          members = parseCSV(content, defaultCountryCode, strict);
         } else if (extension === 'txt') {
-          members = parseTXT(content);
+          members = parseTXT(content, defaultCountryCode, strict);
         } else {
           reject(new Error('Unsupported file type. Please use .csv or .txt'));
           return;
         }
-        
+
         resolve(members);
       } catch (error) {
         reject(error);
@@ -128,7 +152,7 @@ export const getMemberStats = (members: ParsedMember[]) => {
   const total = members.length;
   const valid = members.filter(m => m.isValid).length;
   const invalid = total - valid;
-  
+
   return { total, valid, invalid };
 };
 

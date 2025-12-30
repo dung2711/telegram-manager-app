@@ -1,15 +1,19 @@
+// src/components/contacts/ImportContactsDialog.tsx
 'use client';
 
 import { useState } from 'react';
 import { ContactToImport } from '@/types';
 import { Upload, X, CheckCircle, XCircle } from 'lucide-react';
 import { parseFile, getMemberStats, exportFailedMembers } from '@/utils/memberFileParser';
-import { toast } from 'react-hot-toast';
+import { ParsedMember } from '@/types';
+import { useSettings } from '@/context/SettingsContext';
+import { toast } from '@/utils/toastHelper';
+
 
 interface ImportContactsDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (contacts: ContactToImport[]) => Promise<void>;
+  onImport: (contacts: ContactToImport[]) => Promise<any>;
 }
 
 export function ImportContactsDialog({
@@ -17,8 +21,9 @@ export function ImportContactsDialog({
   onClose,
   onImport,
 }: ImportContactsDialogProps) {
+  const { settings } = useSettings();
   const [step, setStep] = useState<'upload' | 'preview' | 'processing'>('upload');
-  const [parsedContacts, setParsedContacts] = useState<any[]>([]);
+  const [parsedContacts, setParsedContacts] = useState<ParsedMember[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
   if (!isOpen) return null;
@@ -28,7 +33,8 @@ export function ImportContactsDialog({
     if (!file) return;
 
     try {
-      const members = await parseFile(file);
+      const countryCode = settings.defaultCountryCode.replace('+', '');
+      const members = await parseFile(file, countryCode, settings.phoneValidationStrict);
       setParsedContacts(members);
       setStep('preview');
       toast.success(`Parsed ${members.length} contacts`);
@@ -55,11 +61,21 @@ export function ImportContactsDialog({
     setStep('processing');
 
     try {
-      await onImport(validContacts);
-      toast.success(`Imported ${validContacts.length} contacts`);
+      const result = await onImport(validContacts);
+      
+      const actualImported = result?.imported ?? 0;
+      const requested = validContacts.length;
+
+      if (actualImported === requested) {
+        toast.success(`Successfully imported all ${actualImported} contacts!`);
+      } else if (actualImported > 0) {
+        toast.warning(`Partial success: Imported ${actualImported} / ${requested} contacts. (Others are not on Telegram)`);
+      } else {
+        toast.error(`No Telegram accounts found for these ${requested} numbers.`);
+      }
+
       handleClose();
-    } catch (error) {
-      toast.error('Failed to import contacts');
+    } catch (error: any) {
       setStep('preview');
     } finally {
       setIsProcessing(false);
@@ -114,7 +130,8 @@ export function ImportContactsDialog({
                 <ul className="text-sm text-blue-800 space-y-1">
                   <li><strong>CSV:</strong> Name,PhoneNumber</li>
                   <li><strong>TXT:</strong> One phone number per line</li>
-                  <li>Phone: 10-15 digits, auto-normalized to +84</li>
+                  <li>Phone: 10-15 digits, auto-normalized to {settings.defaultCountryCode}</li>
+                  <li>Default country code: {settings.defaultCountryCode}</li>
                 </ul>
               </div>
             </div>

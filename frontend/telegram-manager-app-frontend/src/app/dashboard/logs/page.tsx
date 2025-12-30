@@ -1,7 +1,9 @@
+// src/app/(dashboard)/logs/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useAccount } from '@/context/AccountContext';
+import { useSettings } from '@/context/SettingsContext';
 import { useLogs } from '@/hooks/useLogs';
 import { LogTable } from '@/components/logs/LogTable';
 import { LogFiltersComponent } from '@/components/logs/LogFilters';
@@ -10,22 +12,28 @@ import { Download, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function LogsPage() {
   const { selectedAccount } = useAccount();
+  const { settings } = useSettings();
   const accountID = selectedAccount?.accountID;
   
   const [filters, setFilters] = useState<LogFilters>({
     accountID,
     page: 1,
-    limit: 20,
+    limit: settings.itemsPerPage,
   });
 
   const { logs, isLoading, pagination, fetchLogs, exportLogs } = useLogs();
 
-  // Update filters when account changes
+  // Update filters when account or settings change
   useEffect(() => {
     if (accountID) {
-      setFilters(prev => ({ ...prev, accountID, page: 1 }));
+      setFilters(prev => ({ 
+        ...prev, 
+        accountID, 
+        page: 1,
+        limit: settings.itemsPerPage 
+      }));
     }
-  }, [accountID]);
+  }, [accountID, settings.itemsPerPage]);
 
   // Fetch logs when filters change
   useEffect(() => {

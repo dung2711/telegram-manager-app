@@ -6,7 +6,7 @@ import { AccountCard } from '@/components/accounts/AccountCard';
 import { TelegramAuthDialog } from '@/components/accounts/TelegramAuthDialog';
 import { accountService } from '@/services/accountService';
 import { Plus, RefreshCw } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/utils/toastHelper';
 
 export default function AccountsPage() {
   const { accounts, selectedAccount, selectAccount, refreshAccounts, removeAccount } = useAccount();

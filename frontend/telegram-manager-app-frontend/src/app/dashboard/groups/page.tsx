@@ -1,17 +1,20 @@
+// src/app/(dashboard)/groups/page.tsx
 'use client';
 
 import { useState } from 'react';
 import { useAccount } from '@/context/AccountContext';
+import { useSettings } from '@/context/SettingsContext';
 import { useGroups } from '@/hooks/useGroups';
 import { GroupList } from '@/components/groups/GroupList';
 import { GroupDetailModal } from '@/components/groups/GroupDetailModal';
 import { CreateGroupDialog } from '@/components/groups/CreateGroupDialog';
 import { ChatListItem } from '@/types';
 import { Plus, RefreshCw } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/utils/toastHelper';
 
 export default function GroupsPage() {
   const { selectedAccount } = useAccount();
+  const { settings } = useSettings();
   const accountID = selectedAccount?.accountID;
   
   const { groups, isLoading, fetchGroups, createGroup, leaveGroup, deleteGroup } = useGroups(accountID);
@@ -77,7 +80,7 @@ export default function GroupsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Groups</h1>
           <p className="text-gray-600 mt-1">
-            Manage your Telegram groups and channels
+            Manage your Telegram groups and channels • {settings.itemsPerPage} items per page
           </p>
         </div>
 
@@ -118,6 +121,7 @@ export default function GroupsPage() {
         groups={groups}
         isLoading={isLoading}
         onGroupClick={setSelectedGroup}
+        itemsPerPage={settings.itemsPerPage}
       />
 
       {/* Modals */}

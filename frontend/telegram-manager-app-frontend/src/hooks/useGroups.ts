@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { groupService } from '@/services/groupService';
 import { ChatListItem, CreateGroupRequest, AddMemberRequest, ChatPermissions } from '@/types';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/utils/toastHelper';
 
 export const useGroups = (accountID?: string) => {
   const [groups, setGroups] = useState<ChatListItem[]>([]);

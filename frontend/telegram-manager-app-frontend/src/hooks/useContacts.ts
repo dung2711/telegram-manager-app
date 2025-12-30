@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { userService } from '@/services/userService';
 import { TDLibUser, ContactToImport } from '@/types';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/utils/toastHelper';
 
 export const useContacts = (accountID?: string) => {
   const [contacts, setContacts] = useState<TDLibUser[]>([]);
@@ -56,12 +56,15 @@ export const useContacts = (accountID?: string) => {
 
     try {
       const response = await userService.addContacts(accountID, contactsToAdd);
-      toast.success(`${response.data.imported} contact(s) added successfully`);
-      await fetchContacts(); // Refresh list
-      return response.data;
+      
+      // toast.success(`${response.data.imported} contact(s) added successfully`); 
+
+      await fetchContacts(); 
+      
+      return response.data; 
     } catch (err: any) {
       const errorMsg = err.response?.data?.error || 'Failed to add contacts';
-      toast.error(errorMsg);
+      toast.error(errorMsg); 
       throw err;
     }
   };

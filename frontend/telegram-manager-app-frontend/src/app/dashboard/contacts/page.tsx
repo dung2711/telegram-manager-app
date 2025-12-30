@@ -1,16 +1,19 @@
+// src/app/(dashboard)/contacts/page.tsx
 'use client';
 
 import { useState } from 'react';
 import { useAccount } from '@/context/AccountContext';
+import { useSettings } from '@/context/SettingsContext';
 import { useContacts } from '@/hooks/useContacts';
 import { ContactList } from '@/components/contacts/ContactList';
 import { ImportContactsDialog } from '@/components/contacts/ImportContactsDialog';
 import { TDLibUser } from '@/types';
 import { Plus, RefreshCw, Upload, Search } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/utils/toastHelper';
 
 export default function ContactsPage() {
   const { selectedAccount } = useAccount();
+  const { settings } = useSettings();
   const accountID = selectedAccount?.accountID;
   
   const { contacts, isLoading, fetchContacts, addContacts, removeContacts, searchUsers } = useContacts(accountID);
@@ -22,10 +25,12 @@ export default function ContactsPage() {
 
   const handleImportContacts = async (contactsToImport: any[]) => {
     try {
-      await addContacts(contactsToImport);
-      setShowImportDialog(false);
+      const result = await addContacts(contactsToImport);
+      
+      return result; 
     } catch (error) {
       console.error('Failed to import contacts:', error);
+      throw error; 
     }
   };
 
@@ -84,7 +89,7 @@ export default function ContactsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Contacts</h1>
           <p className="text-gray-600 mt-1">
-            Manage your Telegram contacts
+            Manage your Telegram contacts • {settings.itemsPerPage} items per page
           </p>
         </div>
 
@@ -175,6 +180,7 @@ export default function ContactsPage() {
         isLoading={isLoading || isSearching}
         onContactClick={(contact) => console.log('Contact clicked:', contact)}
         onRemoveContact={searchResults.length === 0 ? handleRemoveContact : undefined}
+        itemsPerPage={settings.itemsPerPage}
       />
 
       {/* Import Dialog */}

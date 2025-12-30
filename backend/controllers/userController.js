@@ -347,8 +347,18 @@ export const addContacts = async (accountID, contacts, userId) => {
       _: "importContacts",
       contacts: validContacts
     });
+    
+    // 1. Lọc bỏ các ID bằng 0 (0, '0', 0n) -> Đây là những số chưa đăng ký Telegram
+    const successfulIds = (result.user_ids || []).filter(id => String(id) !== '0');
+    const realImportedCount = successfulIds.length;
 
-    // Log success
+    // 2. Nếu có danh sách gửi đi mà không thêm được ai -> Coi là LỖI để Frontend báo đỏ
+    if (realImportedCount === 0 && validContacts.length > 0) {
+      // Ném lỗi này để nhảy xuống catch bên dưới
+      throw new Error('Các số điện thoại này chưa đăng ký Telegram hoặc đã chặn tìm kiếm.');
+    }
+
+    // Log success (với số lượng thực tế)
     await recordLog({
       accountID: validAccountID,
       action: 'IMPORT_CONTACTS',
@@ -356,7 +366,8 @@ export const addContacts = async (accountID, contacts, userId) => {
       payload: { 
         requestedCount: contacts.length,
         validCount: validContacts.length,
-        importedCount: result.user_ids?.length || 0
+        importedCount: realImportedCount, 
+        apiResponseIds: result.user_ids 
       },
       status: 'SUCCESS'
     });
@@ -364,7 +375,7 @@ export const addContacts = async (accountID, contacts, userId) => {
     return {
       success: true,
       data: result,
-      imported: result.user_ids?.length || 0
+      imported: realImportedCount // Trả về số lượng thực (đã loại bỏ số 0)
     };
     
   } catch (error) {
@@ -385,7 +396,6 @@ export const addContacts = async (accountID, contacts, userId) => {
     };
   }
 };
-
 /**
  * Remove contacts
  * @param {string} accountID - Account ID

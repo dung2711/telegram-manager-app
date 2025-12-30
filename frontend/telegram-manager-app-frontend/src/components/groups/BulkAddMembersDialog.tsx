@@ -8,8 +8,9 @@ import { parseManualInput, removeDuplicates } from '@/utils/manualInputParser';
 import { normalizePhone } from '@/utils/phoneNormalizer';
 import { useBulkAddMembers } from '@/hooks/useBulkAddMembers';
 import { useContacts } from '@/hooks/useContacts';
+import { useSettings } from '@/context/SettingsContext';
 import { Upload, FileText, CheckCircle, XCircle, AlertCircle, Search, Users } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/utils/toastHelper';
 
 interface BulkAddMembersDialogProps {
   isOpen: boolean;
@@ -30,13 +31,14 @@ export function BulkAddMembersDialog({
   accountID,
   onSuccess,
 }: BulkAddMembersDialogProps) {
+  const { settings } = useSettings();
   const [step, setStep] = useState<'input' | 'preview' | 'processing' | 'result'>('input');
   const [activeTab, setActiveTab] = useState<'manual' | 'search' | 'import'>('manual');
   const [parsedMembers, setParsedMembers] = useState<ParsedMember[]>([]);
   const [selectedContacts, setSelectedContacts] = useState<number[]>([]);
   const [manualInput, setManualInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [autoCleanup, setAutoCleanup] = useState(true);
+  const [autoCleanup, setAutoCleanup] = useState(settings.autoCleanupContacts);
   const [result, setResult] = useState<BulkAddMembersResult | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
@@ -71,18 +73,23 @@ export function BulkAddMembersDialog({
     );
   }
 
-  // Handle manual input
+  // Handle manual input with settings
   const handleManualInput = () => {
     if (!manualInput.trim()) {
       toast.error('Please enter phone numbers');
       return;
     }
 
-    const members = parseManualInput(manualInput);
+    const countryCode = settings.defaultCountryCode.replace('+', '');
+    const members = parseManualInput(
+      manualInput,
+      countryCode,
+      settings.phoneValidationStrict
+    );
     const unique = removeDuplicates(members);
     
     if (unique.length !== members.length) {
-      toast(`Removed ${members.length - unique.length} duplicate(s)`);
+      toast.success(`Removed ${members.length - unique.length} duplicate(s)`);
     }
 
     // Validation for basic group
@@ -97,13 +104,14 @@ export function BulkAddMembersDialog({
     toast.success(`Parsed ${unique.length} phone numbers`);
   };
 
-  // Handle file upload
+  // Handle file upload with settings
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
-      const members = await parseFile(file);
+      const countryCode = settings.defaultCountryCode.replace('+', '');
+      const members = await parseFile(file, countryCode, settings.phoneValidationStrict);
       const unique = removeDuplicates(members);
 
       if (chatType === 'chatTypeBasicGroup' && unique.filter(m => m.isValid).length > 200) {
@@ -151,13 +159,14 @@ export function BulkAddMembersDialog({
       return;
     }
 
+    const countryCode = settings.defaultCountryCode.replace('+', '');
     const members: ParsedMember[] = selectedContacts
       .map(userId => {
         const contact = contacts.find(c => c.id === userId);
         if (!contact || !contact.phone_number) return null;
 
         return {
-          phoneNumber: normalizePhone(contact.phone_number),
+          phoneNumber: normalizePhone(contact.phone_number, countryCode),
           rawPhone: contact.phone_number,
           name: `${contact.first_name} ${contact.last_name || ''}`.trim(),
           lineNumber: 0,
@@ -197,6 +206,7 @@ export function BulkAddMembersDialog({
     setStep('input');
     setActiveTab('manual');
     setCurrentPage(1);
+    setAutoCleanup(settings.autoCleanupContacts);
     onClose();
   };
 
@@ -274,17 +284,17 @@ export function BulkAddMembersDialog({
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Enter Phone Numbers
+                      Enter Phone Numbers (Country: {settings.defaultCountryCode})
                     </label>
                     <textarea
                       value={manualInput}
                       onChange={(e) => setManualInput(e.target.value)}
-                      placeholder="+84912345678&#10;0987654321&#10;84123456789&#10;&#10;Or comma-separated: +84912345678, 0987654321"
+                      placeholder={`${settings.defaultCountryCode}912345678\n0987654321\n${settings.defaultCountryCode.substring(1)}123456789\n\nOr comma-separated: ${settings.defaultCountryCode}912345678, 0987654321`}
                       rows={10}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
                     />
                     <p className="text-sm text-gray-500 mt-2">
-                      Enter one phone number per line, or comma-separated. Format: +84... or 0...
+                      Enter one phone number per line, or comma-separated. Format: {settings.defaultCountryCode}... or 0...
                     </p>
                   </div>
                   <button
@@ -403,7 +413,7 @@ export function BulkAddMembersDialog({
                     <ul className="text-sm text-blue-800 space-y-1">
                       <li><strong>CSV:</strong> Name,PhoneNumber</li>
                       <li><strong>TXT:</strong> One phone number per line</li>
-                      <li>Phone: 10-15 digits, auto-normalized to +84</li>
+                      <li>Phone: 10-15 digits, auto-normalized to {settings.defaultCountryCode}</li>
                     </ul>
                   </div>
                 </div>
@@ -437,7 +447,7 @@ export function BulkAddMembersDialog({
                     <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                     <div className="text-sm text-yellow-800">
                       <strong>Note:</strong> This is a Basic Group. Members will be added one by one 
-                      with a 1s-2s delay between each. This may take a few minutes for {stats.valid} members.
+                      with a {settings.bulkAddDelay}ms delay between each. This may take a few minutes for {stats.valid} members.
                     </div>
                   </div>
                 </div>

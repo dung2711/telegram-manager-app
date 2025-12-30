@@ -7,7 +7,7 @@ import { BulkSettings } from '@/components/settings/BulkSettings';
 import { UISettings } from '@/components/settings/UISettings';
 import { AboutSection } from '@/components/settings/AboutSection';
 import { Settings as SettingsIcon, Zap, Palette, Info, RotateCcw, Save } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/utils/toastHelper';
 
 type SettingsTab = 'general' | 'bulk' | 'ui' | 'about';
 
