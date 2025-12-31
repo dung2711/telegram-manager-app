@@ -348,13 +348,10 @@ export const addContacts = async (accountID, contacts, userId) => {
       contacts: validContacts
     });
     
-    // 1. Lọc bỏ các ID bằng 0 (0, '0', 0n) -> Đây là những số chưa đăng ký Telegram
     const successfulIds = (result.user_ids || []).filter(id => String(id) !== '0');
     const realImportedCount = successfulIds.length;
 
-    // 2. Nếu có danh sách gửi đi mà không thêm được ai -> Coi là LỖI để Frontend báo đỏ
     if (realImportedCount === 0 && validContacts.length > 0) {
-      // Ném lỗi này để nhảy xuống catch bên dưới
       throw new Error('Các số điện thoại này chưa đăng ký Telegram hoặc đã chặn tìm kiếm.');
     }
 

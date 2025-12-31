@@ -1,7 +1,9 @@
 import { v4 as uuid } from 'uuid';
+import { rm } from 'fs/promises';
+import path from 'path';
 import Account from '../models/Account.js';
 import AuditLog from '../models/AuditLog.js';
-import { addClient, getClient } from '../services/tdClient.js';
+import { addClient, getClient, removeClient } from '../services/tdClient.js';
 import { createTDLibClient } from '../config/tdlib.js';
 import { resetRateLimit } from '../middlewares/rateLimit.js';
 
@@ -126,9 +128,11 @@ export const loginTelegram = async (req, res) => {
       
       return res.json({
         success: true,
-        accountID,
-        isNewAccount,
-        message: 'Verification code sent to your Telegram'
+        data: {
+            accountID,
+            isNewAccount,
+            message: 'Verification code sent to your Telegram'
+        }
       });
       
     } catch (tdError) {
@@ -151,11 +155,14 @@ export const loginTelegram = async (req, res) => {
           }
         );
         
+
         return res.json({
           success: true,
-          accountID,
-          isNewAccount,
-          message: 'Account is already authenticated'
+          data: {
+            accountID,
+            isNewAccount,
+            message: 'Account is already authenticated'
+          }
         });
       }
       
@@ -377,6 +384,73 @@ export const getMyAccounts = async (req, res) => {
     return res.status(500).json({
       success: false,
       error: 'Failed to get accounts'
+    });
+  }
+};
+
+export const deleteAccount = async (req, res) => {
+  try {
+    const { accountID } = req.params;
+    const userId = req.user.userId;
+
+    if (!accountID) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Account ID is required' 
+      });
+    }
+
+    const validAccountID = sanitizeAccountID(accountID);
+
+    const account = await Account.findOne({
+      accountID: validAccountID,
+      owner: userId
+    });
+
+    if (!account) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Account not found or access denied' 
+      });
+    }
+
+    // 1. Dừng TDLib Client 
+    await removeClient(validAccountID);
+
+    // 2. Xóa thư mục session
+    if (account.sessionPath) {
+      try {
+        const absolutePath = path.resolve(account.sessionPath);
+        if (absolutePath.includes('tdlib')) {
+            await rm(absolutePath, { recursive: true, force: true });
+        }
+      } catch (fsError) {
+        console.error(`File cleanup error for ${validAccountID}:`, fsError.message);
+      }
+    }
+
+    // 3. Xóa dữ liệu trong Database
+    await Account.deleteOne({ _id: account._id });
+
+    // 4. Log Audit
+    await AuditLog.create({
+      accountID: validAccountID,
+      action: 'ACCOUNT_DELETED',
+      status: 'SUCCESS',
+      payload: { deletedBy: userId }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Account and session data deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Delete account error:', error);
+    
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete account'
     });
   }
 };

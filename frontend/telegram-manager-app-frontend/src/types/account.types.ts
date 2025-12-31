@@ -1,40 +1,45 @@
 // src/types/account.types.ts
 
 /**
- * Telegram Account - Tài khoản Telegram được quản lý
+ * Telegram Account entity từ backend
  */
-export interface TelegramAccount {
+export interface Account {
   _id: string;
-  owner: string; // System user ID
+  owner: string; // User ID
   accountID: string; // UUID
   phoneNumber: string;
+  sessionPath: string;
   isAuthenticated: boolean;
   lastActive?: string;
-  createdAt: string;
+  createdAt?: string;
   updatedAt?: string;
 }
 
 /**
- * Telegram Auth Flow Response
+ * Get accounts response từ /auth/telegram/accounts
  */
-export interface TelegramLoginResponse {
-  accountID: string;
-  isNewAccount: boolean;
-  message: string;
-}
-
-export interface TelegramAuthState {
-  step: 'phone' | 'code' | 'password' | 'completed';
-  accountID?: string;
-  phoneNumber?: string;
+export interface GetAccountsResponse {
+  success: boolean;
+  data?: Account[];
   error?: string;
 }
 
 /**
- * Account Selector Item
+ * Account info hiển thị trong UI (simplified)
  */
-export interface AccountOption {
-  value: string; // accountID
-  label: string; // phoneNumber
+export interface AccountInfo {
+  accountID: string;
+  phoneNumber: string;
+  isAuthenticated: boolean;
+  lastActive?: string;
+  createdAt?: string;
+}
+
+/**
+ * Selected account trong context
+ */
+export interface SelectedAccount {
+  accountID: string;
+  phoneNumber: string;
   isAuthenticated: boolean;
 }

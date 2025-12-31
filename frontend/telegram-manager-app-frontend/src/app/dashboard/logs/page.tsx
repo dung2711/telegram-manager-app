@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount } from '@/context/AccountContext';
+import { useAccount } from '@/hooks/useAccount';
 import { useSettings } from '@/context/SettingsContext';
 import { useLogs } from '@/hooks/useLogs';
 import { LogTable } from '@/components/logs/LogTable';

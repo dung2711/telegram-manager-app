@@ -22,11 +22,12 @@ export const getClient = (accountID) => {
 /**
  * Remove client from memory
  */
-export const removeClient = (accountID) => {
+export const removeClient = async (accountID) => {
   const client = clients.get(accountID);
   if (client) {
     try {
       client.close();
+      await new Promise(resolve => setTimeout(resolve, 500));
     } catch (error) {
       console.error(`Error closing client ${accountID}:`, error);
     }
@@ -83,9 +84,6 @@ export const restoreClients = async () => {
       } catch (error) {
         console.error(`Failed to restore client for ${account.phoneNumber}:`, error.message);
         
-        // Nếu restore fail, set isAuthenticated = false
-        account.isAuthenticated = false;
-        await account.save();
         
         failedCount++;
       }

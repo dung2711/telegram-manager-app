@@ -16,7 +16,8 @@ import {
   loginTelegram, 
   verifyAuthCode, 
   verifyPassword,
-  getMyAccounts
+  getMyAccounts,
+  deleteAccount
 } from '../controllers/telegramAuthController.js';
 
 const router = express.Router();
@@ -105,5 +106,12 @@ router.post('/telegram/verify-password',
  * @access  Private
  */
 router.get('/telegram/accounts', authenticate, getMyAccounts);
+
+/**
+ * @route   DELETE /api/auth/telegram/accounts/:accountID
+ * @desc    Xoá Telegram account của user
+ * @access  Private
+ */
+router.delete('/telegram/accounts/:accountID', authenticate, deleteAccount);
 
 export default router;

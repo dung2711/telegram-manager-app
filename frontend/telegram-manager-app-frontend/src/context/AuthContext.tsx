@@ -1,92 +1,140 @@
-// src/context/AuthContext.tsx
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import Cookies from 'js-cookie';
+// src/context/AuthContext.tsx
+
+import { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, LoginResponse } from '@/types';
-import { authService } from '@/services/authService';
+import * as authService from '@/services/authService';
+import type { User } from '@/types';
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (data: LoginResponse) => void;
-  logout: () => void;
-  checkAuth: () => Promise<void>;
+  isAuthenticated: boolean;
+  login: (username: string, password: string) => Promise<void>;
+  register: (username: string, fullname: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  refreshUserInfo: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  // Hàm login: Lưu token và set user state
-  const login = (data: LoginResponse) => {
-    Cookies.set('accessToken', data.accessToken, { expires: 1 }); // 1 ngày
-    Cookies.set('refreshToken', data.refreshToken, { expires: 7 }); // 7 ngày
-    setUser(data.user);
-    router.push('/dashboard'); // Chuyển hướng sau khi login
-  };
+  const isAuthenticated = !!user;
 
-  // Hàm logout
-  const logout = async () => {
+  /**
+   * Fetch user info khi mount (nếu có token)
+   */
+  const fetchUserInfo = useCallback(async () => {
     try {
-      const refreshToken = Cookies.get('refreshToken');
-      if (refreshToken) {
-        await authService.logout(refreshToken);
+      if (!authService.isAuthenticated()) {
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await authService.getCurrentUser();
+      if (response.success && response.data) {
+        setUser(response.data);
+      } else {
+        setUser(null);
       }
     } catch (error) {
-      console.error('Logout error', error);
+      console.error('Failed to fetch user info:', error);
+      setUser(null);
     } finally {
-      Cookies.remove('accessToken');
-      Cookies.remove('refreshToken');
+      setIsLoading(false);
+    }
+  }, []);
+
+  /**
+   * Refresh user info (gọi từ bên ngoài nếu cần)
+   */
+  const refreshUserInfo = useCallback(async () => {
+    try {
+      const response = await authService.getCurrentUser();
+      if (response.success && response.data) {
+        setUser(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to refresh user info:', error);
+    }
+  }, []);
+
+  /**
+   * Login handler
+   */
+  const login = useCallback(async (username: string, password: string) => {
+    try {
+      const response = await authService.login(username, password);
+      
+      if (response.success && response.data) {
+        setUser(response.data.user);
+        router.push('/dashboard');
+      }
+    } catch (error) {
+      // Error đã được handle trong service (toast)
+      throw error;
+    }
+  }, [router]);
+
+  /**
+   * Register handler
+   */
+  const register = useCallback(async (
+    username: string,
+    fullname: string,
+    password: string
+  ) => {
+    try {
+      const response = await authService.register(username, fullname, password);
+      
+      if (response.success && response.data) {
+        setUser(response.data.user);
+        router.push('/dashboard');
+      }
+    } catch (error) {
+      // Error đã được handle trong service (toast)
+      throw error;
+    }
+  }, [router]);
+
+  /**
+   * Logout handler
+   */
+  const logout = useCallback(async () => {
+    try {
+      await authService.logout();
+      setUser(null);
+      router.push('/login');
+    } catch (error) {
+      // Vẫn clear state dù có lỗi
       setUser(null);
       router.push('/login');
     }
-  };
+  }, [router]);
 
-  // Hàm check auth khi F5 trang
-  const checkAuth = async () => {
-    const token = Cookies.get('accessToken');
-    if (!token) {
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      const response = await authService.getMe();
-      if (response.data.success) {
-        setUser(response.data.data);
-      }
-    } catch (error) {
-      // Nếu token lỗi -> logout luôn
-      Cookies.remove('accessToken');
-      Cookies.remove('refreshToken');
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Chạy checkAuth 1 lần khi mount
+  // Auto-fetch user info khi mount
   useEffect(() => {
-    checkAuth();
-  }, []);
+    fetchUserInfo();
+  }, [fetchUserInfo]);
 
-  return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, checkAuth }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const value: AuthContextType = {
+    user,
+    isLoading,
+    isAuthenticated,
+    login,
+    register,
+    logout,
+    refreshUserInfo,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
-
-// Hook để dùng nhanh ở các component khác
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};

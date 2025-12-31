@@ -1,141 +1,118 @@
-// src/context/AccountContext.tsx
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { TelegramAccount } from '@/types';
-import { authService } from '@/services/authService';
-import { useAuth } from './AuthContext';
+// src/context/AccountContext.tsx
+
+import { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import * as accountService from '@/services/accountService';
+import type { Account, SelectedAccount } from '@/types';
 
 interface AccountContextType {
-  accounts: TelegramAccount[];
-  selectedAccount: TelegramAccount | null;
+  accounts: Account[];
+  selectedAccount: SelectedAccount | null;
   isLoading: boolean;
-  selectAccount: (accountID: string) => void;
+  fetchAccounts: () => Promise<void>;
+  selectAccount: (accountID: string, phoneNumber: string, isAuthenticated: boolean) => void;
+  clearSelectedAccount: () => void;
   refreshAccounts: () => Promise<void>;
-  addAccount: (account: TelegramAccount) => void;
-  removeAccount: (accountID: string) => void;
 }
 
-const AccountContext = createContext<AccountContextType | undefined>(undefined);
+export const AccountContext = createContext<AccountContextType | undefined>(undefined);
 
-export function AccountProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-  const [accounts, setAccounts] = useState<TelegramAccount[]>([]);
-  const [selectedAccount, setSelectedAccount] = useState<TelegramAccount | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+interface AccountProviderProps {
+  children: ReactNode;
+}
 
-  // Load accounts khi user đăng nhập
-  const loadAccounts = async () => {
-    if (!user) {
-      setAccounts([]);
-      setSelectedAccount(null);
-      setIsLoading(false);
-      return;
+const SELECTED_ACCOUNT_KEY = 'telegram-selected-account';
+
+export function AccountProvider({ children }: AccountProviderProps) {
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState<SelectedAccount | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  /**
+   * Load selected account từ localStorage khi mount
+   */
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(SELECTED_ACCOUNT_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setSelectedAccount(parsed);
+      }
+    } catch (error) {
+      console.error('Failed to load selected account:', error);
     }
+  }, []);
 
+  /**
+   * Fetch accounts từ backend
+   */
+  const fetchAccounts = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await authService.getMyAccounts();
-      
-      if (response.data.success) {
-        const loadedAccounts = response.data.data;
-        setAccounts(loadedAccounts);
-        
-        // Auto-select account đầu tiên nếu chưa có account nào được chọn
-        if (loadedAccounts.length > 0 && !selectedAccount) {
-          // Ưu tiên account đã authenticated
-          const authenticatedAccount = loadedAccounts.find(acc => acc.isAuthenticated);
-          setSelectedAccount(authenticatedAccount || loadedAccounts[0]);
+      const data = await accountService.getMyAccounts();
+      setAccounts(data);
+
+      // Kiểm tra xem selected account có còn tồn tại không
+      if (selectedAccount) {
+        const accountExists = data.some(acc => acc.accountID === selectedAccount.accountID);
+        if (!accountExists) {
+          // Account đã bị xóa → clear selection
+          setSelectedAccount(null);
+          localStorage.removeItem(SELECTED_ACCOUNT_KEY);
         }
       }
     } catch (error) {
-      console.error('Failed to load accounts:', error);
+      console.error('Failed to fetch accounts:', error);
       setAccounts([]);
     } finally {
       setIsLoading(false);
     }
+  }, [selectedAccount]);
+
+  /**
+   * Select account và persist vào localStorage
+   */
+  const selectAccount = useCallback((accountID: string, phoneNumber: string, isAuthenticated: boolean) => {
+    const selected: SelectedAccount = { accountID, phoneNumber, isAuthenticated };
+    setSelectedAccount(selected);
+    localStorage.setItem(SELECTED_ACCOUNT_KEY, JSON.stringify(selected));
+
+    // Emit custom event để các components khác biết account đã đổi
+    window.dispatchEvent(new CustomEvent('account-changed', { 
+      detail: selected 
+    }));
+  }, []);
+
+  /**
+   * Clear selected account
+   */
+  const clearSelectedAccount = useCallback(() => {
+    setSelectedAccount(null);
+    localStorage.removeItem(SELECTED_ACCOUNT_KEY);
+
+    // Emit event
+    window.dispatchEvent(new CustomEvent('account-changed', { 
+      detail: null 
+    }));
+  }, []);
+
+  /**
+   * Refresh accounts (alias cho fetchAccounts)
+   */
+  const refreshAccounts = useCallback(async () => {
+    await fetchAccounts();
+  }, [fetchAccounts]);
+
+  const value: AccountContextType = {
+    accounts,
+    selectedAccount,
+    isLoading,
+    fetchAccounts,
+    selectAccount,
+    clearSelectedAccount,
+    refreshAccounts,
   };
 
-  // Chọn account
-  const selectAccount = (accountID: string) => {
-    const account = accounts.find(acc => acc.accountID === accountID);
-    if (account) {
-      setSelectedAccount(account);
-      // Lưu vào localStorage để persistent
-      localStorage.setItem('selectedAccountID', accountID);
-    }
-  };
-
-  // Refresh accounts list
-  const refreshAccounts = async () => {
-    await loadAccounts();
-  };
-
-  // Thêm account mới vào list (sau khi add thành công)
-  const addAccount = (account: TelegramAccount) => {
-    setAccounts(prev => [...prev, account]);
-    // Auto-select account mới thêm
-    setSelectedAccount(account);
-    localStorage.setItem('selectedAccountID', account.accountID);
-  };
-
-  // Xóa account khỏi list
-  const removeAccount = (accountID: string) => {
-    setAccounts(prev => prev.filter(acc => acc.accountID !== accountID));
-    
-    // Nếu account đang được chọn bị xóa, chọn account khác
-    if (selectedAccount?.accountID === accountID) {
-      const remainingAccounts = accounts.filter(acc => acc.accountID !== accountID);
-      setSelectedAccount(remainingAccounts[0] || null);
-      
-      if (remainingAccounts[0]) {
-        localStorage.setItem('selectedAccountID', remainingAccounts[0].accountID);
-      } else {
-        localStorage.removeItem('selectedAccountID');
-      }
-    }
-  };
-
-  // Load accounts khi component mount hoặc user thay đổi
-  useEffect(() => {
-    loadAccounts();
-  }, [user]);
-
-  // Restore selected account từ localStorage
-  useEffect(() => {
-    if (accounts.length > 0) {
-      const savedAccountID = localStorage.getItem('selectedAccountID');
-      if (savedAccountID) {
-        const account = accounts.find(acc => acc.accountID === savedAccountID);
-        if (account) {
-          setSelectedAccount(account);
-        }
-      }
-    }
-  }, [accounts]);
-
-  return (
-    <AccountContext.Provider
-      value={{
-        accounts,
-        selectedAccount,
-        isLoading,
-        selectAccount,
-        refreshAccounts,
-        addAccount,
-        removeAccount,
-      }}
-    >
-      {children}
-    </AccountContext.Provider>
-  );
+  return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;
 }
-
-// Hook để dùng AccountContext
-export const useAccount = () => {
-  const context = useContext(AccountContext);
-  if (context === undefined) {
-    throw new Error('useAccount must be used within an AccountProvider');
-  }
-  return context;
-};

@@ -1,157 +1,157 @@
 'use client';
 
-import { useState } from 'react';
-import { useAccount } from '@/context/AccountContext';
+// src/app/dashboard/accounts/page.tsx
+
+import { useState, useEffect } from 'react';
+import { useAccount } from '@/hooks/useAccount';
+import * as accountService from '@/services/accountService';
 import { AccountCard } from '@/components/accounts/AccountCard';
 import { TelegramAuthDialog } from '@/components/accounts/TelegramAuthDialog';
-import { accountService } from '@/services/accountService';
-import { Plus, RefreshCw } from 'lucide-react';
-import { toast } from '@/utils/toastHelper';
+import toast from 'react-hot-toast';
 
 export default function AccountsPage() {
-  const { accounts, selectedAccount, selectAccount, refreshAccounts, removeAccount } = useAccount();
-  const [showAuthDialog, setShowAuthDialog] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const {
+    accounts,
+    selectedAccount,
+    isLoading,
+    fetchAccounts,
+    selectAccount,
+    refreshAccounts,
+  } = useAccount();
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      await refreshAccounts();
-      toast.success('Accounts refreshed');
-    } catch (error) {
-      toast.error('Failed to refresh accounts');
-    } finally {
-      setIsRefreshing(false);
-    }
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // Fetch accounts khi mount
+  useEffect(() => {
+    fetchAccounts();
+  }, [fetchAccounts]);
+
+  const handleSelectAccount = (accountID: string, phoneNumber: string, isAuthenticated: boolean) => {
+    selectAccount(accountID, phoneNumber, isAuthenticated);
+    toast.success(`Switched to ${phoneNumber}`);
   };
 
   const handleDeleteAccount = async (accountID: string) => {
-    if (!confirm('Are you sure you want to delete this account? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      await accountService.delete(accountID);
-      removeAccount(accountID);
-      toast.success('Account deleted successfully');
-    } catch (error: any) {
-      const errorMsg = error.response?.data?.error || 'Failed to delete account';
-      toast.error(errorMsg);
-    }
+    await accountService.deleteAccount(accountID);
+    await refreshAccounts();
   };
 
-  const handleAuthSuccess = async () => {
+  const handleDialogSuccess = async () => {
+    // Refresh accounts list sau khi add thành công
     await refreshAccounts();
-    toast.success('Account added successfully!');
   };
 
   return (
-    <div className="space-y-6">
+    <div>
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Telegram Accounts</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            Telegram Accounts
+          </h1>
+          <p className="text-gray-600">
             Manage your connected Telegram accounts
           </p>
         </div>
-
-        <div className="flex gap-3">
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className={`flex items-center gap-2 px-4 py-2 border rounded-lg font-medium transition-all ${
-              isRefreshing
-                ? 'border-blue-400 bg-blue-50 text-blue-700 cursor-wait'
-                : 'border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
-            }`}
-          >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {isRefreshing ? 'Refreshing...' : 'Refresh'}
-          </button>
-
-          <button
-            onClick={() => setShowAuthDialog(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Add Account
-          </button>
-        </div>
+        <button
+          onClick={() => setIsDialogOpen(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center"
+        >
+          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          Add Account
+        </button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="text-3xl font-bold text-gray-900">{accounts.length}</div>
-          <div className="text-sm text-gray-600 mt-1">Total Accounts</div>
-        </div>
-        <div className="bg-green-50 rounded-lg border border-green-200 p-6">
-          <div className="text-3xl font-bold text-green-900">
-            {accounts.filter(a => a.isAuthenticated).length}
+      {/* Loading State */}
+      {isLoading && accounts.length === 0 && (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <svg
+              className="animate-spin h-10 w-10 text-blue-600 mx-auto mb-4"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
+            <p className="text-gray-600">Loading accounts...</p>
           </div>
-          <div className="text-sm text-green-600 mt-1">Connected</div>
         </div>
-        <div className="bg-red-50 rounded-lg border border-red-200 p-6">
-          <div className="text-3xl font-bold text-red-900">
-            {accounts.filter(a => !a.isAuthenticated).length}
+      )}
+
+      {/* Empty State */}
+      {!isLoading && accounts.length === 0 && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
           </div>
-          <div className="text-sm text-red-600 mt-1">Disconnected</div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            No Accounts Yet
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Add your first Telegram account to get started with group and contact management.
+          </p>
+          <button
+            onClick={() => setIsDialogOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors inline-flex items-center"
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Add Your First Account
+          </button>
         </div>
-      </div>
+      )}
 
       {/* Accounts Grid */}
-      {accounts.length === 0 ? (
-        <div className="bg-white rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
-          <div className="max-w-sm mx-auto">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Plus className="w-8 h-8 text-blue-600" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              No Accounts Yet
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Add your first Telegram account to start managing groups and contacts
-            </p>
-            <button
-              onClick={() => setShowAuthDialog(true)}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-              Add Your First Account
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {!isLoading && accounts.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {accounts.map((account) => (
             <AccountCard
               key={account.accountID}
               account={account}
               isSelected={selectedAccount?.accountID === account.accountID}
-              onSelect={() => selectAccount(account.accountID)}
-              onDelete={() => handleDeleteAccount(account.accountID)}
+              onSelect={() => handleSelectAccount(account.accountID, account.phoneNumber, account.isAuthenticated)}
+              onDelete={handleDeleteAccount}
             />
           ))}
         </div>
       )}
 
-      {/* Info Box */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-        <h3 className="font-semibold text-blue-900 mb-2">💡 Tips</h3>
-        <ul className="text-sm text-blue-800 space-y-2">
-          <li>• You can manage multiple Telegram accounts from one dashboard</li>
-          <li>• Click on an account card to make it active</li>
-          <li>• Connected accounts can access your groups and your contacts</li>
-          <li>• Disconnected accounts need re-authentication to work</li>
-        </ul>
-      </div>
+      {/* Selected Account Info */}
+      {selectedAccount && accounts.length > 0 && (
+        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-sm text-blue-900">
+              Currently using <span className="font-semibold">{selectedAccount.phoneNumber}</span> for all operations
+            </p>
+          </div>
+        </div>
+      )}
 
-      {/* Auth Dialog */}
+      {/* Add Account Dialog */}
       <TelegramAuthDialog
-        isOpen={showAuthDialog}
-        onClose={() => setShowAuthDialog(false)}
-        onSuccess={handleAuthSuccess}
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        onSuccess={handleDialogSuccess}
       />
     </div>
   );

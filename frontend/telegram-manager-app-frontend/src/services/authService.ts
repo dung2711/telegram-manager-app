@@ -1,55 +1,137 @@
 // src/services/authService.ts
+
 import apiClient from '@/lib/axios';
-import { ApiResponse, LoginResponse, User } from '@/types';
+import Cookies from 'js-cookie';
+import toast from 'react-hot-toast';
+import type {
+  RegisterRequest,
+  LoginRequest,
+  AuthResponse,
+  UserResponse,
+  ApiResponse,
+} from '@/types';
 
-// Dữ liệu đầu vào cho Login
-interface LoginCredentials {
-  username: string;
-  password?: string; // Hệ thống
-  phoneNumber?: string; // Telegram
-  accountID?: string; // Telegram
-  code?: string; // Telegram
-}
+/**
+ * Đăng ký user mới
+ */
+export const register = async (
+  username: string,
+  fullname: string,
+  password: string
+): Promise<AuthResponse> => {
+  try {
+    const payload: RegisterRequest = {
+      username: username.toLowerCase().trim(),
+      fullname: fullname.trim(),
+      password,
+    };
 
-export const authService = {
-  // --- SYSTEM AUTH ---
-  login: async (credentials: Pick<LoginCredentials, 'username' | 'password'>) => {
-    return apiClient.post<ApiResponse<LoginResponse>>('/auth/login', credentials);
-  },
+    const response = await apiClient.post<AuthResponse>('/auth/register', payload);
 
-  register: async (data: any) => {
-    return apiClient.post<ApiResponse<LoginResponse>>('/auth/register', data);
-  },
+    if (response.data.success && response.data.data) {
+      // Lưu tokens vào cookies
+      Cookies.set('accessToken', response.data.data.accessToken, { expires: 1 });
+      Cookies.set('refreshToken', response.data.data.refreshToken, { expires: 7 });
+      
+      toast.success('Registration successful! Welcome aboard 🎉');
+      return response.data;
+    }
 
-  logout: async (refreshToken: string) => {
-    return apiClient.post('/auth/logout', { refreshToken });
-  },
-
-  getMe: async () => {
-    return apiClient.get<ApiResponse<User>>('/auth/me');
-  },
-
-  // --- TELEGRAM AUTH FLOW ---
-  // Bước 1: Nhập SĐT
-  telegramLogin: async (phoneNumber: string) => {
-    return apiClient.post<ApiResponse<{ accountID: string; isNewAccount: boolean; message: string }>>(
-      '/auth/telegram/login', 
-      { phoneNumber }
-    );
-  },
-
-  // Bước 2: Nhập Code
-  verifyCode: async (accountID: string, code: string) => {
-    return apiClient.post<ApiResponse<any>>('/auth/telegram/verify-code', { accountID, code });
-  },
-
-  // Bước 3: Nhập Password (2FA)
-  verifyPassword: async (accountID: string, password: string) => {
-    return apiClient.post<ApiResponse<any>>('/auth/telegram/verify-password', { accountID, password });
-  },
-  
-  // Lấy danh sách tài khoản Telegram
-  getMyAccounts: async () => {
-    return apiClient.get<ApiResponse<any[]>>('/auth/telegram/accounts');
+    throw new Error(response.data.error || 'Registration failed');
+  } catch (error: any) {
+    const errorMsg = error.response?.data?.error || error.message || 'Registration failed';
+    toast.error(errorMsg);
+    throw new Error(errorMsg);
   }
+};
+
+/**
+ * Đăng nhập user
+ */
+export const login = async (
+  username: string,
+  password: string
+): Promise<AuthResponse> => {
+  try {
+    const payload: LoginRequest = {
+      username: username.toLowerCase().trim(),
+      password,
+    };
+
+    const response = await apiClient.post<AuthResponse>('/auth/login', payload);
+
+    if (response.data.success && response.data.data) {
+      // Lưu tokens vào cookies
+      Cookies.set('accessToken', response.data.data.accessToken, { expires: 1 });
+      Cookies.set('refreshToken', response.data.data.refreshToken, { expires: 7 });
+      
+      toast.success(`Welcome back, ${response.data.data.user.fullname}! 👋`);
+      return response.data;
+    }
+
+    throw new Error(response.data.error || 'Login failed');
+  } catch (error: any) {
+    const errorMsg = error.response?.data?.error || error.message || 'Login failed';
+    toast.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+};
+
+/**
+ * Đăng xuất user
+ */
+export const logout = async (): Promise<void> => {
+  try {
+    const refreshToken = Cookies.get('refreshToken');
+    
+    if (refreshToken) {
+      // Call backend logout (best effort - không block nếu fail)
+      await apiClient.post('/auth/logout', { refreshToken }).catch(() => {});
+    }
+
+    // Clear tokens
+    Cookies.remove('accessToken');
+    Cookies.remove('refreshToken');
+    
+    // Clear selected account
+    localStorage.removeItem('telegram-selected-account');
+    
+    toast.success('Logged out successfully');
+  } catch (error: any) {
+    // Vẫn clear tokens dù API fail
+    Cookies.remove('accessToken');
+    Cookies.remove('refreshToken');
+    localStorage.removeItem('telegram-selected-account');
+    
+    console.error('Logout error:', error);
+    toast.error('Logged out (with errors)');
+  }
+};
+
+/**
+ * Lấy thông tin user hiện tại
+ */
+export const getCurrentUser = async (): Promise<UserResponse> => {
+  try {
+    const response = await apiClient.get<UserResponse>('/auth/me');
+
+    if (response.data.success && response.data.data) {
+      return response.data;
+    }
+
+    throw new Error(response.data.error || 'Failed to get user info');
+  } catch (error: any) {
+    const errorMsg = error.response?.data?.error || error.message || 'Failed to get user info';
+    console.error('Get current user error:', errorMsg);
+    throw new Error(errorMsg);
+  }
+};
+
+/**
+ * Kiểm tra xem user có đang authenticated không
+ */
+export const isAuthenticated = (): boolean => {
+  const accessToken = Cookies.get('accessToken');
+  const refreshToken = Cookies.get('refreshToken');
+  return !!(accessToken || refreshToken);
 };

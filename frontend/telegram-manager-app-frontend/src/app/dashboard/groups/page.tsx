@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAccount } from '@/context/AccountContext';
+import { useAccount } from '@/hooks/useAccount';
 import { useSettings } from '@/context/SettingsContext';
 import { useGroups } from '@/hooks/useGroups';
 import { GroupList } from '@/components/groups/GroupList';
